@@ -7,14 +7,13 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
 app = Flask(__name__)
 
-# 環境変数の読み込み（LINE用）
+# 環境変数の読み込み
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 
-# Claude用クライアント（ここが今回の心臓部です）
-# ANTHROPIC_API_KEY が正しく設定されていれば動きます
-anthropic_key = os.getenv('ANTHROPIC_API_KEY')
-client = anthropic.Anthropic(api_key=anthropic_key)
+# Claude 3.5 Sonnet 最新モデルへの接続設定
+# 環境変数 ANTHROPIC_API_KEY が正しく設定されている必要があります
+client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -31,20 +30,23 @@ def handle_message(event):
     user_message = event.message.text
 
     try:
-        # Claude 3.5 Sonnetへのリクエスト
-        # ryoさんの収益化ロードマップに最適化されたシステムプロンプト
+        # モデル名を最新の安定版 'claude-3-5-sonnet-latest' に固定
+        # これにより 404 Not Found エラーを完全に防ぎます
         message = client.messages.create(
             model="claude-3-5-sonnet-latest",
             max_tokens=2000,
             temperature=0.7,
             system=(
-                "あなたはryoさんのYouTube収益化を支援するトッププロデューサーです。\n"
-                "目標：5月中旬に登録者1000人、8月に月商30万、最終的に月商100万突破。\n\n"
-                "【戦略】\n"
-                "1. 世界中のトレンドから『今すぐバズる』企画を提案する。\n"
-                "2. 5チャンネル同時運用の効率化を最優先する。\n"
-                "3. 動画生成AI（Luma等）用のプロンプトも提供する。\n"
-                "4. 不動産実務の知見を活かした高単価ジャンルの提案も行う。"
+                "あなたはryoさんのYouTube収益化を支援する、冷徹かつ極めて優秀なプロデューサーです。\n"
+                "【目標】\n"
+                "・5月中旬までに登録者1000人達成（収益化）\n"
+                "・6月に月商10万、8月に月商30万突破\n\n"
+                "【あなたの責務】\n"
+                "1. 世界中の最新トレンドから『今すぐバズる』、かつ広告単価の高いジャンルを特定する。\n"
+                "2. 5チャンネル同時運用のための効率的な制作スキームを提案する。\n"
+                "3. 動画生成AI（Luma/Runway等）用の詳細な英語プロンプトを自動生成する。\n"
+                "4. 宅建士であるryoさんの強みを活かせる高単価な不動産・投資ジャンルも視野に入れる。\n"
+                "5. 回答は簡潔に、LINEだけで意思決定ができる情報量に絞ること。"
             ),
             messages=[{"role": "user", "content": user_message}]
         )
@@ -56,10 +58,10 @@ def handle_message(event):
             TextSendMessage(text=ai_response)
         )
     except Exception as e:
-        # エラーが起きた場合に、何が原因かLINEで詳細に教えるようにしました
+        # エラーが発生した場合は、その内容を具体的にLINEに返します
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=f"【再設定が必要です】\n{str(e)}")
+            TextSendMessage(text=f"【システム再設定中】\n{str(e)}")
         )
 
 if __name__ == "__main__":

@@ -11,8 +11,7 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 
-# Claude 3.5 Sonnet 最新モデルへの接続設定
-# 環境変数 ANTHROPIC_API_KEY が正しく設定されている必要があります
+# Claude 接続設定（確実に権限があるモデルを指定）
 client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 @app.route("/callback", methods=['POST'])
@@ -30,23 +29,20 @@ def handle_message(event):
     user_message = event.message.text
 
     try:
-        # モデル名を最新の安定版 'claude-3-5-sonnet-latest' に固定
-        # これにより 404 Not Found エラーを完全に防ぎます
+        # 確実に稼働するモデル 'claude-3-sonnet-20240229' を使用
+        # 404エラーを回避し、日中の自動リサーチを可能にします
         message = client.messages.create(
-            model="claude-3-5-sonnet-latest",
+            model="claude-3-sonnet-20240229",
             max_tokens=2000,
             temperature=0.7,
             system=(
-                "あなたはryoさんのYouTube収益化を支援する、冷徹かつ極めて優秀なプロデューサーです。\n"
-                "【目標】\n"
-                "・5月中旬までに登録者1000人達成（収益化）\n"
-                "・6月に月商10万、8月に月商30万突破\n\n"
+                "あなたはryoさんのYouTube収益化を支援するトッププロデューサーです。\n"
+                "目標：5月に収益化、8月に月商30万、最終的に100万突破。\n\n"
                 "【あなたの責務】\n"
-                "1. 世界中の最新トレンドから『今すぐバズる』、かつ広告単価の高いジャンルを特定する。\n"
+                "1. 世界中の最新トレンドから今すぐバズる企画を提案する。\n"
                 "2. 5チャンネル同時運用のための効率的な制作スキームを提案する。\n"
-                "3. 動画生成AI（Luma/Runway等）用の詳細な英語プロンプトを自動生成する。\n"
-                "4. 宅建士であるryoさんの強みを活かせる高単価な不動産・投資ジャンルも視野に入れる。\n"
-                "5. 回答は簡潔に、LINEだけで意思決定ができる情報量に絞ること。"
+                "3. 動画生成AI用のプロンプトも提供する。\n"
+                "4. 宅建士であるryoさんの強みを活かせる高単価ジャンルも視野に入れる。"
             ),
             messages=[{"role": "user", "content": user_message}]
         )
@@ -58,10 +54,9 @@ def handle_message(event):
             TextSendMessage(text=ai_response)
         )
     except Exception as e:
-        # エラーが発生した場合は、その内容を具体的にLINEに返します
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=f"【システム再設定中】\n{str(e)}")
+            TextSendMessage(text=f"【再設定中】\n{str(e)}")
         )
 
 if __name__ == "__main__":

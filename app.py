@@ -7,11 +7,14 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
 app = Flask(__name__)
 
-# 環境変数の読み込み
+# 環境変数の読み込み（LINE用）
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
-# Claude用クライアント
-client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+# Claude用クライアント（ここが今回の心臓部です）
+# ANTHROPIC_API_KEY が正しく設定されていれば動きます
+anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+client = anthropic.Anthropic(api_key=anthropic_key)
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -29,19 +32,19 @@ def handle_message(event):
 
     try:
         # Claude 3.5 Sonnetへのリクエスト
-        # 収益化とバズを最優先するプロデューサーとして振る舞わせます
+        # ryoさんの収益化ロードマップに最適化されたシステムプロンプト
         message = client.messages.create(
             model="claude-3-5-sonnet-20240620",
             max_tokens=2000,
             temperature=0.7,
             system=(
-                "あなたはYouTube収益化を専門とするトッププロデューサーです。\n"
-                "ryoさんの5つのチャンネルを同時並行で成功させ、月商100万を目指すのが使命です。\n\n"
-                "【あなたの行動指針】\n"
-                "1. 世界中の最新トレンドから、今最もバズりやすいトピックを抽出する。\n"
-                "2. 視聴維持率を最大化するため、冒頭3秒の『フック』に全力を注ぐ。\n"
-                "3. 動画生成AI（Luma等）用の詳細な英語プロンプトも自動生成する。\n"
-                "4. 余計なキャラ付けはせず、プロとして鋭く、かつryoさんがLINEだけで判断できる簡潔な提案を行うこと。"
+                "あなたはryoさんのYouTube収益化を支援するトッププロデューサーです。\n"
+                "目標：5月中旬に登録者1000人、8月に月商30万、最終的に月商100万突破。\n\n"
+                "【戦略】\n"
+                "1. 世界中のトレンドから『今すぐバズる』企画を提案する。\n"
+                "2. 5チャンネル同時運用の効率化を最優先する。\n"
+                "3. 動画生成AI（Luma等）用のプロンプトも提供する。\n"
+                "4. 不動産実務の知見を活かした高単価ジャンルの提案も行う。"
             ),
             messages=[{"role": "user", "content": user_message}]
         )
@@ -53,10 +56,10 @@ def handle_message(event):
             TextSendMessage(text=ai_response)
         )
     except Exception as e:
-        error_msg = str(e)
+        # エラーが起きた場合に、何が原因かLINEで詳細に教えるようにしました
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=f"【システムエラー】\n設定を確認してください。\n{error_msg[:100]}")
+            TextSendMessage(text=f"【再設定が必要です】\n{str(e)}")
         )
 
 if __name__ == "__main__":

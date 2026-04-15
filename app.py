@@ -34,7 +34,7 @@ def handle_message(event):
         # Claude 3.5 Sonnetへのリクエスト
         # ryoさんの収益化ロードマップに最適化されたシステムプロンプト
         message = client.messages.create(
-            model="claude-3-5-sonnet-20240620",
+            model="claude-3-5-sonnet-latest",
             max_tokens=2000,
             temperature=0.7,
             system=(

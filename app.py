@@ -7,8 +7,10 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
 app = Flask(__name__)
 
+# 環境変数
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
+client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -22,28 +24,21 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    # APIキーが読み込めているかチェック
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not api_key:
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="エラー：ANTHROPIC_API_KEYが設定されていません。"))
-        return
-
     try:
-        # 最も軽量で制限の少ない 'claude-3-haiku-20240307' を試します
-        client = anthropic.Anthropic(api_key=api_key)
+        # 入金済みなら絶対にこれ！最強のClaude 3.5 Sonnetを使います
         message = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=1000,
+            model="claude-3-5-sonnet-latest",
+            max_tokens=2000,
+            system="あなたはryoさんのYouTube収益化プロデューサーです。月商100万を目指すための戦略をLINEで簡潔に返信してください。",
             messages=[{"role": "user", "content": event.message.text}]
         )
-        response = message.content[0].text
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=response))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=message.content[0].text))
     except Exception as e:
-        # 404が出る本当の理由を日本語で詳しく出力させます
-        error_detail = str(e)
-        msg = f"【診断結果】\nAIがまだ準備できていないようです。\n理由: {error_detail}\n\n※支払いが反映されるまで数時間かかる場合があります。"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
+        # エラーが起きたら、LINEにその理由を具体的に吐き出させます
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=f"【システムログ】\n{str(e)}")
+        )
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))

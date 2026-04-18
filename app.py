@@ -7,7 +7,7 @@ import anthropic
 
 app = Flask(__name__)
 
-# 環境変数から設定を取得
+# 環境変数から取得
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
@@ -15,6 +15,11 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+# Renderのヘルスチェック用（これが無いとエラーが出ます）
+@app.route("/", methods=['GET'])
+def health_check():
+    return "OK", 200
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -31,9 +36,9 @@ def handle_message(event):
     user_message = event.message.text
     
     try:
-        # ここが重要！モデル名を最新の claude-sonnet-4-6 に変更しました
+        # モデル名を正式名称に修正しました
         response = client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-3-5-sonnet-20241022",
             max_tokens=1000,
             messages=[{"role": "user", "content": user_message}]
         )
@@ -44,11 +49,12 @@ def handle_message(event):
             TextSendMessage(text=reply_text)
         )
     except Exception as e:
-        # エラーが出た場合、LINEにエラー内容を返します（デバッグ用）
+        # エラー発生時、原因をLINEに返信します
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=f"エラーが発生しました: {str(e)}")
+            TextSendMessage(text=f"エラー: {str(e)}")
         )
 
 if __name__ == "__main__":
-    app.run()
+    # Renderで動作させるためにhostを0.0.0.0にする必要があります
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))

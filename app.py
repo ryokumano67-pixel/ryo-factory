@@ -25,20 +25,18 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     try:
-        # モデルをHaikuに変更しました
         response = client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=1000,
             messages=[{"role": "user", "content": event.message.text}]
         )
         line_bot_api.reply_message(
-            event.reply_token, 
+            event.reply_token,
             TextSendMessage(text=response.content[0].text)
         )
     except Exception as e:
-        # エラー発生時、LINEに詳細を返して原因を特定する
         line_bot_api.reply_message(
-            event.reply_token, 
+            event.reply_token,
             TextSendMessage(text=f"API Error: {str(e)}")
         )
 

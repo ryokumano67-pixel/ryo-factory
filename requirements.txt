@@ -1,4 +1,3 @@
 flask
-gunicorn
 line-bot-sdk
-anthropic
+gunicorn

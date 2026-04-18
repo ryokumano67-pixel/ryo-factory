@@ -1,20 +1,24 @@
 import os
-import anthropic
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
+import anthropic
 
 app = Flask(__name__)
 
-# 環境変数
-line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
-handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
-client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+# 環境変数から設定を取得
+LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
+LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+
+line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_CHANNEL_SECRET)
+client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 @app.route("/callback", methods=['POST'])
 def callback():
-    signature = request.headers.get('X-Line-Signature', '')
+    signature = request.headers['X-Line-Signature']
     body = request.get_data(as_text=True)
     try:
         handler.handle(body, signature)
@@ -24,40 +28,27 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    # 新規アカウントでも通りやすい順に並べ替えました
-    target_models = [
-        "claude-3-haiku-20240307",
-        "claude-3-5-sonnet-latest",
-        "claude-3-opus-20240229"
-    ]
+    user_message = event.message.text
     
-    response_content = None
-    error_logs = []
-
-    for model_name in target_models:
-        try:
-            message = client.messages.create(
-                model=model_name,
-                max_tokens=1000,
-                system="あなたはYouTube収益化プロデューサーです。簡潔に回答してください。",
-                messages=[{"role": "user", "content": event.message.text}]
-            )
-            response_content = message.content[0].text
-            break 
-        except Exception as e:
-            error_logs.append(f"{model_name}: {str(e)}")
-            continue
-
-    if not response_content:
-        # すべて失敗した場合、何が原因か全モデル分をLINEに報告させます
-        final_text = "【重要：Anthropic側の制限が続いています】\n" + "\n".join(error_logs)
-    else:
-        final_text = response_content
-
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=final_text)
-    )
+    try:
+        # ここが重要！モデル名を最新の claude-sonnet-4-6 に変更しました
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1000,
+            messages=[{"role": "user", "content": user_message}]
+        )
+        
+        reply_text = response.content[0].text
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=reply_text)
+        )
+    except Exception as e:
+        # エラーが出た場合、LINEにエラー内容を返します（デバッグ用）
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=f"エラーが発生しました: {str(e)}")
+        )
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run()

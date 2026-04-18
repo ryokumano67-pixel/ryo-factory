@@ -1,3 +1,4 @@
 flask
 line-bot-sdk
-anthropic>=0.28.0
+anthropic
+gunicorn

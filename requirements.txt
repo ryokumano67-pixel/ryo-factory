@@ -1,4 +1,4 @@
 flask
 gunicorn
 line-bot-sdk
-anthropic>=0.35.0
+anthropic

@@ -7,6 +7,7 @@ import anthropic
 
 app = Flask(__name__)
 
+# Renderの環境変数から取得
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
@@ -15,6 +16,7 @@ line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
+# Renderのヘルスチェック用（これがないとエラーになることがあります）
 @app.route("/", methods=['GET'])
 def health_check():
     return "OK", 200
@@ -33,7 +35,7 @@ def callback():
 def handle_message(event):
     user_message = event.message.text
     try:
-        # モデル名を最新の正式名称に指定
+        # モデル名を確実に存在する正式名称に変更
         response = client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=1000,
@@ -42,9 +44,10 @@ def handle_message(event):
         reply_text = response.content[0].text
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
     except Exception as e:
+        # エラー発生時、原因をLINEに返信します
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"エラー: {str(e)}"))
 
 if __name__ == "__main__":
-    # 【ここを修正】Renderが指定するポート番号を読み取り、外部からのアクセス(0.0.0.0)を許可する
-    port = int(os.environ.get("PORT", 10000))
+    # Renderで動作させるためにhostを0.0.0.0にし、ポートを自動取得します
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)

@@ -7,7 +7,6 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
 app = Flask(__name__)
 
-# クライアントの初期化
 line_bot_api = LineBotApi(os.environ.get("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.environ.get("LINE_CHANNEL_SECRET"))
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -25,17 +24,14 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     try:
-        # 確実に動作するモデル名を指定
         response = client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=1000,
             messages=[{"role": "user", "content": event.message.text}]
         )
-        reply_text = response.content[0].text
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=response.content[0].text))
     except Exception as e:
-        # エラー時は内容を返信してデバッグしやすくします
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"Error: {str(e)}"))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"API Key Error: {str(e)}"))
 
 if __name__ == "__main__":
     app.run()

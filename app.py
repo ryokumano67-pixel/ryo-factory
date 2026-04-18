@@ -25,8 +25,9 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     try:
+        # モデルを最新のClaude 3.5 Haikuに変更しました
         response = client.messages.create(
-            model="claude-3-haiku-20240307",
+            model="claude-3-5-haiku-20241022",
             max_tokens=1000,
             messages=[{"role": "user", "content": event.message.text}]
         )

@@ -50,7 +50,17 @@ app = Flask(__name__)
 
 # 承認待ちセッションを一時保存（プロセス内メモリ）
 # { user_id: { "scripts": [...], "script_path": str } }
-pending_sessions: dict[str, dict] = {}
+SESSIONS_FILE = BASE_DIR / "pending_sessions.json"
+
+def load_sessions():
+    if SESSIONS_FILE.exists():
+        with open(SESSIONS_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_sessions(sessions):
+    with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
+        json.dump(sessions, f, ensure_ascii=False, indent=2)
 
 
 # ── LINE API ヘルパー ──────────────────────────────────────
@@ -159,7 +169,9 @@ def send_notification(to: str) -> None:
     for chunk in chunks:
         push_message(to, chunk)
 
-    pending_sessions[to] = {"scripts": scripts, "script_path": str(script_path)}
+    sessions = load_sessions()
+sessions[to] = {"scripts": scripts, "script_path": str(script_path)}
+save_sessions(sessions)
     log.info(f"台本通知を送信しました → {to}")
 
 
@@ -167,7 +179,8 @@ def send_notification(to: str) -> None:
 
 def handle_approval(user_id: str, reply_token: str, text: str) -> None:
     """承認・却下メッセージを処理する。"""
-    session = pending_sessions.get(user_id)
+    sessions = load_sessions()
+session = sessions.get(user_id)
     if not session:
         reply_message(reply_token, "承認待ちの台本がありません。先にスケジューラーを実行してください。")
         return
@@ -198,14 +211,18 @@ def handle_approval(user_id: str, reply_token: str, text: str) -> None:
         push_message(user_id, f"Vrewに台本を貼り付けて動画を作成してください\n\n📄 {script_file.name}")
 
         log.info(f"台本承認: keyword={keyword}, file={script_file}")
-        pending_sessions.pop(user_id, None)
+        sessions = load_sessions()
+sessions.pop(user_id, None)
+save_sessions(sessions)
 
     # ── 却下・再生成処理（NGで始まるメッセージ）──
     elif text_lower.startswith("ng"):
         instruction = text_stripped[2:].lstrip(":： ").strip()
         reply_message(reply_token, "❌ 却下しました。台本を再生成して送り直します...")
         log.info(f"台本却下。再生成指示: {instruction!r}")
-        pending_sessions.pop(user_id, None)
+        sessions = load_sessions()
+sessions.pop(user_id, None)
+save_sessions(sessions)
 
         def regenerate_and_notify():
             env = os.environ.copy()

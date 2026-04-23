@@ -1,0 +1,7 @@
+anthropic>=0.30.0
+pytrends>=4.9.2
+google-api-python-client>=2.130.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+flask>=3.0.0
+schedule>=1.2.0

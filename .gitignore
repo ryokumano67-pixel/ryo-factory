@@ -1,0 +1,11 @@
+.env
+.DS_Store
+__pycache__/
+*.pyc
+logs/
+0_trends/trends_*.json
+1_scripts/scripts_*.json
+1_scripts/approved.json
+3_video/*.mp4
+3_video/source_*.json
+3_video/script_*.txt

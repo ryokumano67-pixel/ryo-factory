@@ -129,8 +129,8 @@ def run_pipeline(script_data, keyword):
     audio_path = BASE_DIR / "static" / audio_filename
     generate_audio(script_text, audio_path)
     
-    # 3. RenderにPush
-    audio_url = push_audio_to_render(audio_path, audio_filename)
+    # 3. RenderのURL
+    audio_url = f"https://ryo-factory.onrender.com/static/{audio_filename}"
     
     # 4. 動画生成
     video_url = generate_video(audio_url)

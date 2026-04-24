@@ -159,7 +159,25 @@ def handle_approval(user_id, reply_token, text):
         keyword = chosen_script["keyword"]
         reply_message(reply_token, f"制作開始します！\n\n{chosen_script['script']}")
         script_file = save_script_to_txt(chosen_script)
-        push_message(user_id, f"Vrewに台本を貼り付けて動画を作成してください\n\n📄 {script_file.name}")
+        push_message(user_id, f"動画生成を開始します！完了したらお知らせします📹")
+        import threading
+        def run_pipeline():
+            try:
+                import subprocess, sys
+                result = subprocess.run(
+                    [sys.executable, "/Users/user/youtube-factory/pipeline.py"],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    import re
+                    urls = re.findall(r"https://youtube.com/shorts/\S+", result.stdout)
+                    url = urls[-1] if urls else "不明"
+                    push_message(user_id, f"✅ YouTube投稿完了！\n{url}")
+                else:
+                    push_message(user_id, f"⚠️ エラーが発生しました:\n{result.stderr[:200]}")
+            except Exception as e:
+                push_message(user_id, f"⚠️ パイプラインエラー: {e}")
+        threading.Thread(target=run_pipeline, daemon=True).start()
         log.info(f"台本承認: keyword={keyword}, file={script_file}")
         sessions = load_sessions()
         sessions.pop(user_id, None)

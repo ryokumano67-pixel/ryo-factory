@@ -160,21 +160,19 @@ def handle_approval(user_id, reply_token, text):
         reply_message(reply_token, f"制作開始します！\n\n{chosen_script['script']}")
         script_file = save_script_to_txt(chosen_script)
         push_message(user_id, f"動画生成を開始します！完了したらお知らせします📹")
-        import threading
+        import threading, subprocess, sys, re
         def run_pipeline():
             try:
-                import subprocess, sys
                 result = subprocess.run(
                     [sys.executable, "/Users/user/youtube-factory/pipeline.py"],
-                    capture_output=True, text=True
+                    capture_output=True, text=True, cwd="/Users/user/youtube-factory"
                 )
                 if result.returncode == 0:
-                    import re
                     urls = re.findall(r"https://youtube.com/shorts/\S+", result.stdout)
                     url = urls[-1] if urls else "不明"
                     push_message(user_id, f"✅ YouTube投稿完了！\n{url}")
                 else:
-                    push_message(user_id, f"⚠️ エラーが発生しました:\n{result.stderr[:200]}")
+                    push_message(user_id, f"⚠️ エラー:\n{result.stderr[:300]}")
             except Exception as e:
                 push_message(user_id, f"⚠️ パイプラインエラー: {e}")
         threading.Thread(target=run_pipeline, daemon=True).start()
@@ -209,6 +207,16 @@ def handle_approval(user_id, reply_token, text):
         reply_message(reply_token, "返信は OK / 1 / 2 / 3 / NG のいずれかで送ってください。")
 
 
+
+@app.route("/run_pipeline", methods=["POST"])
+def run_pipeline_endpoint():
+    import subprocess, sys
+    data = request.json
+    script_path = data.get("script_path")
+    user_id = data.get("user_id")
+    keyword = data.get("keyword")
+    subprocess.Popen([sys.executable, "/Users/user/youtube-factory/pipeline.py", script_path or "", user_id or "", keyword or ""])
+    return {"status": "started"}, 200
 @app.route("/webhook", methods=["POST"])
 def webhook():
     signature = request.headers.get("X-Line-Signature", "")

@@ -49,15 +49,22 @@ def get_pexels_image(keyword):
     }
     en_keyword = keyword_map.get(keyword, keyword)
     resp = requests.get(
-        f"https://api.pexels.com/v1/search?query={en_keyword}&per_page=1&orientation=portrait",
+        f"https://api.pexels.com/v1/search?query={en_keyword}&per_page=3&orientation=portrait",
         headers={"Authorization": api_key},
         timeout=10
     )
     if resp.ok and resp.json()["photos"]:
-        return resp.json()["photos"][0]["src"]["large"]
-    return None
+        photos = resp.json()["photos"]
+        return [p["src"]["large"] for p in photos]
+    return [None, None, None]
 
 def fix_pronunciation(text):
+    import re
+    text = re.sub(r"\[.*?\]", "", text)
+    text = re.sub(r"
+{3,}", "
+
+", text).strip()
     for word, reading in REPLACEMENTS.items():
         text = text.replace(word, reading)
     return text
@@ -88,12 +95,14 @@ def push_audio_to_render(audio_path, filename):
     time.sleep(30)
     return f"https://ryo-factory.onrender.com/static/{filename}"
 
-def generate_video(audio_url, image_url=None):
+def generate_video(audio_url, image_urls=None):
     url = "https://api.creatomate.com/v1/renders"
     headers = {"Authorization": f"Bearer {CREATOMATE_API_KEY}", "Content-Type": "application/json"}
     modifications = {"Voiceover-1": audio_url}
-    if image_url:
-        modifications["Image-1"] = image_url
+    if image_urls and len(image_urls) >= 3:
+        modifications["Image-1"] = image_urls[0]
+        modifications["Image-1-L42"] = image_urls[1]
+        modifications["Image-1-H3H"] = image_urls[2]
     payload = {
         "template_id": CREATOMATE_TEMPLATE_ID,
         "modifications": modifications
@@ -168,8 +177,8 @@ def run_pipeline(script_data, keyword):
     audio_url = f"https://ryo-factory.onrender.com/static/{audio_filename}"
     
     # 4. 動画生成
-    image_url = get_pexels_image(keyword)
-    video_url = generate_video(audio_url, image_url)
+    image_urls = get_pexels_image(keyword)
+    video_url = generate_video(audio_url, image_urls)
     
     # 5. レンダリング待機
     wait_for_video(video_url)

@@ -21,13 +21,41 @@ TOKEN_FILE = BASE_DIR / "youtube_token.json"
 CLIENT_SECRETS_FILE = BASE_DIR / "client_secrets.json"
 
 REPLACEMENTS = {
+    "生成AI": "生成エーアイ",
     "AI": "エーアイ", "SNS": "エスエヌエス", "YouTube": "ユーチューブ",
     "ChatGPT": "チャットジーピーティー", "GPT": "ジーピーティー",
     "IT": "アイティー", "DX": "デジタルトランスフォーメーション",
     "NFT": "エヌエフティー", "PR": "ピーアール", "PC": "パソコン",
     "AR": "エーアール", "VR": "ブイアール", "OK": "オーケー",
     "pro": "プロ", "Pro": "プロ", "PRO": "プロ",
+    "App": "アプリ", "app": "アプリ", "Web": "ウェブ", "web": "ウェブ",
+    "EAI": "エーアイ", "EA I": "エーアイ",
 }
+
+
+def get_pexels_image(keyword):
+    import requests, os
+    api_key = os.getenv("PEXELS_API_KEY")
+    # キーワードを英語に変換
+    keyword_map = {
+        "ChatGPT": "artificial intelligence",
+        "エーアイ": "artificial intelligence",
+        "AI": "artificial intelligence",
+        "生成エーアイ": "artificial intelligence technology",
+        "節約": "saving money",
+        "不動産": "real estate",
+        "教育": "education",
+        "ライフ": "lifestyle",
+    }
+    en_keyword = keyword_map.get(keyword, keyword)
+    resp = requests.get(
+        f"https://api.pexels.com/v1/search?query={en_keyword}&per_page=1&orientation=portrait",
+        headers={"Authorization": api_key},
+        timeout=10
+    )
+    if resp.ok and resp.json()["photos"]:
+        return resp.json()["photos"][0]["src"]["large"]
+    return None
 
 def fix_pronunciation(text):
     for word, reading in REPLACEMENTS.items():
@@ -60,12 +88,15 @@ def push_audio_to_render(audio_path, filename):
     time.sleep(30)
     return f"https://ryo-factory.onrender.com/static/{filename}"
 
-def generate_video(audio_url):
+def generate_video(audio_url, image_url=None):
     url = "https://api.creatomate.com/v1/renders"
     headers = {"Authorization": f"Bearer {CREATOMATE_API_KEY}", "Content-Type": "application/json"}
+    modifications = {"Voiceover-1": audio_url}
+    if image_url:
+        modifications["Image-1"] = image_url
     payload = {
         "template_id": CREATOMATE_TEMPLATE_ID,
-        "modifications": {"Voiceover-1": audio_url}
+        "modifications": modifications
     }
     resp = requests.post(url, headers=headers, json=payload, timeout=60)
     if not resp.ok:
@@ -137,7 +168,8 @@ def run_pipeline(script_data, keyword):
     audio_url = f"https://ryo-factory.onrender.com/static/{audio_filename}"
     
     # 4. 動画生成
-    video_url = generate_video(audio_url)
+    image_url = get_pexels_image(keyword)
+    video_url = generate_video(audio_url, image_url)
     
     # 5. レンダリング待機
     wait_for_video(video_url)

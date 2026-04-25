@@ -92,10 +92,14 @@ def download_video(url, output_path):
     return output_path
 
 def get_youtube_service():
+    from google.auth.transport.requests import Request
     creds = None
     if TOKEN_FILE.exists():
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-    if not creds or not creds.valid:
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        TOKEN_FILE.write_text(creds.to_json())
+    elif not creds or not creds.valid:
         flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
         creds = flow.run_local_server(port=0)
         TOKEN_FILE.write_text(creds.to_json())

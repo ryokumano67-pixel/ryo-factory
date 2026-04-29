@@ -2,11 +2,9 @@ import os
 import anthropic
 import requests
 import random
-import schedule
-import time
 from dotenv import load_dotenv
 
-load_dotenv("../.env")
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 LINE_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
@@ -34,8 +32,6 @@ THEMES = [
     "冷蔵庫の節電テクニック",
     "ガソリン代を節約する方法",
 ]
-
-used_themes = []
 
 def generate_post(theme):
     prompt = f"""あなたは節約アドバイザーのHanaです。
@@ -72,33 +68,9 @@ def send_line(text):
     r = requests.post("https://api.line.me/v2/bot/message/push", headers=headers, json=data)
     print(f"LINE送信: {r.status_code}")
 
-def pick_theme():
-    global used_themes
-    available = [t for t in THEMES if t not in used_themes]
-    if not available:
-        used_themes = []
-        available = THEMES
-    theme = random.choice(available)
-    used_themes.append(theme)
-    return theme
-
-def send_post():
-    theme = pick_theme()
+if __name__ == "__main__":
+    theme = random.choice(THEMES)
     post = generate_post(theme)
-    message = f"📢 Hana投稿文案\n【テーマ】{theme}\n\n{post}\n\n─────\nコピペしてXに投稿してね！"
+    message = f"📢 Hana投稿文案\n\n{post}\n\n─────\nコピペしてXに投稿してね！"
     send_line(message)
-    print(f"送信完了: {theme}")
-
-# スケジュール設定
-schedule.every().day.at("07:00").do(send_post)
-schedule.every().day.at("09:00").do(send_post)
-schedule.every().day.at("11:30").do(send_post)
-schedule.every().day.at("17:00").do(send_post)
-schedule.every().day.at("20:00").do(send_post)
-
-print("🚀 Hana投稿スケジューラー起動中...")
-print("毎日 7:00 / 9:00 / 11:30 / 17:00 / 20:00 にLINEへ送信")
-
-while True:
-    schedule.run_pending()
-    time.sleep(30)
+    print(f"完了: {theme}")

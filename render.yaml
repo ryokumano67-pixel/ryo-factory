@@ -1,0 +1,83 @@
+services:
+  # LINE Webhook サーバー（常時起動）
+  - type: web
+    name: youtube-factory-line
+    env: python
+    plan: starter
+    buildCommand: |
+      pip install -r requirements.txt &&
+      apt-get install -y ffmpeg 2>/dev/null || true
+    startCommand: python startup.py && gunicorn notify_line:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1
+    disk:
+      name: youtube-factory-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      # 以下はRenderダッシュボードで手動設定
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: HEYGEN_API_KEY
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_NOTIFY_USER_ID
+        sync: false
+      - key: PEXELS_API_KEY
+        sync: false
+      - key: SAKURA_SKIP_UPLOAD
+        value: "false"
+      # YouTubeトークン（base64でエンコードして貼る）
+      - key: YOUTUBE_TOKEN_B64
+        sync: false
+      - key: SAKURA_YOUTUBE_TOKEN_B64
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRETS_B64
+        sync: false
+
+  # サクラ 毎朝6時スケジューラー（JST = UTC 21:00）
+  - type: cron
+    name: sakura-daily-6am
+    env: python
+    plan: starter
+    schedule: "0 21 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python startup.py && python sakura/scheduler.py --now
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_NOTIFY_USER_ID
+        sync: false
+
+  # AI Japan Labo 毎朝7時スケジューラー（JST = UTC 22:00）
+  - type: cron
+    name: ai-japan-daily-7am
+    env: python
+    plan: starter
+    schedule: "0 22 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python startup.py && python scheduler.py --now
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_NOTIFY_USER_ID
+        sync: false

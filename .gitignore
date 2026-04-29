@@ -1,11 +1,39 @@
+# 環境変数・シークレット
 .env
-.DS_Store
+client_secrets.json
+youtube_token.json
+sakura/sakura_youtube_token.json
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+.venv/
+
+# macOS
+.DS_Store
+
+# ログ
 logs/
+
+# 生成ファイル（ローカルのみ）
 0_trends/trends_*.json
 1_scripts/scripts_*.json
 1_scripts/approved.json
+sakura/scripts/
+sakura/audio/
+sakura/videos/
 3_video/*.mp4
 3_video/source_*.json
 3_video/script_*.txt
+3_video/videos_*.json
+static/audio_*.mp3
+static/sakura_audio_*.mp3
+
+# セッションファイル（Render Diskで管理）
+pending_sessions.json
+sakura/sakura_sessions.json
+
+# その他
+hana_x/
+local_runner.py

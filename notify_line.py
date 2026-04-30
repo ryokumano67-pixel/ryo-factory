@@ -6,9 +6,12 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from base64 import b64encode
 from datetime import datetime
 from pathlib import Path
+
+import schedule
 
 import requests
 from dotenv import load_dotenv
@@ -611,6 +614,41 @@ def notify(user_id):
     except Exception as e:
         return {"error": str(e)}, 500
 
+
+# ─── Hana投稿スケジューラー ───────────────────────────────────────────────────
+
+def _run_hana_post():
+    log.info("[Hana] 投稿開始")
+    result = subprocess.run(
+        [sys.executable, str(BASE_DIR / "hana_line_post.py")],
+        capture_output=True, text=True, cwd=str(BASE_DIR),
+    )
+    if result.returncode != 0:
+        log.error(f"[Hana] 投稿失敗: {result.stderr[-300:]}")
+    else:
+        log.info("[Hana] 投稿完了")
+
+
+def _start_hana_scheduler():
+    # UTC時刻（JST-9h）
+    schedule.every().day.at("22:00").do(_run_hana_post)  # JST 7:00
+    schedule.every().day.at("00:00").do(_run_hana_post)  # JST 9:00
+    schedule.every().day.at("02:30").do(_run_hana_post)  # JST 11:30
+    schedule.every().day.at("08:00").do(_run_hana_post)  # JST 17:00
+    schedule.every().day.at("11:00").do(_run_hana_post)  # JST 20:00
+
+    def loop():
+        while True:
+            schedule.run_pending()
+            time.sleep(30)
+
+    threading.Thread(target=loop, daemon=True).start()
+    log.info("[Hana] スケジューラー起動（UTC 22:00/00:00/02:30/08:00/11:00）")
+
+
+_start_hana_scheduler()
+
+# ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     if "--send" in sys.argv:

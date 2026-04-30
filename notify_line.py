@@ -615,6 +615,27 @@ def notify(user_id):
         return {"error": str(e)}, 500
 
 
+@app.route("/sakura/notify/<user_id>", methods=["POST"])
+def sakura_notify(user_id):
+    try:
+        sys.path.insert(0, str(BASE_DIR))
+        from sakura.notify_line import load_latest_scripts, build_notification_text
+        scripts, script_path = load_latest_scripts()
+        text = build_notification_text(scripts)
+        chunk_size = 4900
+        for chunk in [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]:
+            push_message(user_id, chunk)
+        sessions = load_sakura_sessions()
+        sessions[user_id] = {"scripts": scripts, "script_path": str(script_path)}
+        save_sakura_sessions(sessions)
+        log.info(f"[Sakura] 台本通知送信 → {user_id}")
+        return {"status": "sent"}, 200
+    except FileNotFoundError as e:
+        return {"error": str(e)}, 404
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 # ─── Hana投稿スケジューラー ───────────────────────────────────────────────────
 
 def _run_hana_post():

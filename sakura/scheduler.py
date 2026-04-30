@@ -58,19 +58,16 @@ def send_line_notification() -> bool:
     if not LINE_NOTIFY_USER_ID:
         log.warning("LINE_NOTIFY_USER_ID が未設定のため通知をスキップします")
         return False
+    service_url = os.getenv("SERVICE_URL", "https://ryo-factory.onrender.com")
+    url = f"{service_url}/sakura/notify/{LINE_NOTIFY_USER_ID}"
     try:
-        result = subprocess.run(
-            [sys.executable, str(SAKURA_DIR / "notify_line.py"), "--send"],
-            cwd=str(BASE_DIR),
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode == 0:
+        import requests
+        resp = requests.post(url, timeout=30)
+        if resp.ok:
             log.info("✅ LINE 通知送信完了")
             return True
         else:
-            log.error(f"❌ LINE 通知失敗: {result.stderr}")
+            log.error(f"❌ LINE 通知失敗: {resp.status_code} {resp.text}")
             return False
     except Exception as e:
         log.error(f"❌ LINE 通知エラー: {e}")

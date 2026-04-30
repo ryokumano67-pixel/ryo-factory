@@ -326,21 +326,43 @@ def generate_thumbnail(video_path: Path, title: str, topic: str, index: int = 0)
     return thumb_path
 
 
+def _get_sakura_youtube_creds(scopes: list):
+    """token ファイル → env var の順で認証情報を取得。ブラウザ不要。"""
+    import json as _json
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+
+    TOKEN_FILE = SAKURA_DIR / "sakura_youtube_token.json"
+    token_json = None
+
+    if TOKEN_FILE.exists():
+        token_json = TOKEN_FILE.read_text(encoding="utf-8")
+    else:
+        token_json = os.getenv("SAKURA_YOUTUBE_TOKEN_JSON", "")
+
+    if not token_json:
+        raise RuntimeError(
+            "Sakura YouTube token が見つかりません。"
+            "ローカルで OAuth を実行し SAKURA_YOUTUBE_TOKEN_JSON に設定してください。"
+        )
+
+    creds = Credentials.from_authorized_user_info(_json.loads(token_json), scopes)
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        # リフレッシュしたら両方更新
+        TOKEN_FILE.write_text(creds.to_json())
+        # env var は書き換えられないので Render 側は次回デプロイ時に更新が必要
+    return creds
+
+
 def upload_thumbnail(video_id: str, thumb_path: Path):
     """YouTube動画にサムネイルをアップロード"""
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
-    from google.oauth2.credentials import Credentials
-    from google.auth.transport.requests import Request
 
     SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
               "https://www.googleapis.com/auth/youtube.force-ssl"]
-    TOKEN_FILE = SAKURA_DIR / "sakura_youtube_token.json"
-    creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        TOKEN_FILE.write_text(creds.to_json())
-
+    creds = _get_sakura_youtube_creds(SCOPES)
     yt = build("youtube", "v3", credentials=creds)
     media = MediaFileUpload(str(thumb_path), mimetype="image/jpeg")
     yt.thumbnails().set(videoId=video_id, media_body=media).execute()
@@ -359,25 +381,9 @@ def _next_6am_jst() -> str:
 def upload_youtube(video_path: Path, title: str, description: str, tags: list, scheduled: bool = False) -> str:
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
-    from google.oauth2.credentials import Credentials
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from google.auth.transport.requests import Request
 
     SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
-    TOKEN_FILE = SAKURA_DIR / "sakura_youtube_token.json"
-    CLIENT_SECRETS = BASE_DIR / "client_secrets.json"
-
-    creds = None
-    if TOKEN_FILE.exists():
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        TOKEN_FILE.write_text(creds.to_json())
-    elif not creds or not creds.valid:
-        flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS, SCOPES)
-        creds = flow.run_local_server(port=0)
-        TOKEN_FILE.write_text(creds.to_json())
-
+    creds = _get_sakura_youtube_creds(SCOPES)
     yt = build("youtube", "v3", credentials=creds)
     status = {"selfDeclaredMadeForKids": False}
     if scheduled:

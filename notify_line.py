@@ -414,9 +414,12 @@ def _sakura_start_pipeline(user_id, chosen_script, topic):
             )
             tmp_file.unlink(missing_ok=True)
             if result.returncode == 0:
-                yt_urls = re_mod.findall(r"https://youtube\.com/shorts/\S+", result.stdout)
+                scheduled_urls = re_mod.findall(r"YouTube予約完了.*?(https://youtube\.com/shorts/\S+)", result.stdout)
+                yt_urls = re_mod.findall(r"YouTube投稿完了.*?(https://youtube\.com/shorts/\S+)", result.stdout)
                 vid_paths = re_mod.findall(r"動画生成完了（YouTube投稿スキップ中）: (\S+)", result.stdout)
-                if yt_urls:
+                if scheduled_urls:
+                    push_message(user_id, f"✅ 動画を予約しました！明朝6時に公開されます🌸\n{scheduled_urls[-1]}")
+                elif yt_urls:
                     push_message(user_id, f"✅ サクラ動画投稿完了！\n{yt_urls[-1]}")
                 elif vid_paths:
                     push_message(user_id, f"✅ 動画生成完了！（投稿スキップ中）\n保存先: {vid_paths[-1]}")

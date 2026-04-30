@@ -104,7 +104,7 @@ def main() -> None:
     log.info("サクラスケジューラーを起動します。毎朝 06:00 に実行します。")
     log.info(f"LINE 通知先ユーザーID: {LINE_NOTIFY_USER_ID or '(未設定)'}")
 
-    schedule.every().day.at("06:00").do(pipeline)
+    schedule.every().day.at("11:00").do(pipeline)  # 20:00 JST
 
     log.info("待機中... (Ctrl+C で停止)")
     while True:

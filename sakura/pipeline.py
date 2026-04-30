@@ -9,7 +9,7 @@ import re
 import sys
 import time
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -347,7 +347,16 @@ def upload_thumbnail(video_id: str, thumb_path: Path):
     print(f"サムネイルアップロード完了: {video_id}")
 
 
-def upload_youtube(video_path: Path, title: str, description: str, tags: list) -> str:
+def _next_6am_jst() -> str:
+    """翌朝6:00 JST を RFC3339 形式で返す"""
+    JST = timezone(timedelta(hours=9))
+    now = datetime.now(JST)
+    today_6am = now.replace(hour=6, minute=0, second=0, microsecond=0)
+    publish_at = today_6am + timedelta(days=1) if now >= today_6am else today_6am
+    return publish_at.strftime("%Y-%m-%dT06:00:00+09:00")
+
+
+def upload_youtube(video_path: Path, title: str, description: str, tags: list, scheduled: bool = False) -> str:
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
     from google.oauth2.credentials import Credentials
@@ -370,6 +379,15 @@ def upload_youtube(video_path: Path, title: str, description: str, tags: list) -
         TOKEN_FILE.write_text(creds.to_json())
 
     yt = build("youtube", "v3", credentials=creds)
+    status = {"selfDeclaredMadeForKids": False}
+    if scheduled:
+        publish_at = _next_6am_jst()
+        status["privacyStatus"] = "private"
+        status["publishAt"] = publish_at
+        print(f"予約投稿: {publish_at}")
+    else:
+        status["privacyStatus"] = "public"
+
     body = {
         "snippet": {
             "title": title,
@@ -377,13 +395,16 @@ def upload_youtube(video_path: Path, title: str, description: str, tags: list) -
             "tags": tags,
             "categoryId": "22",
         },
-        "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False},
+        "status": status,
     }
     media = MediaFileUpload(str(video_path), mimetype="video/mp4", resumable=True)
     req = yt.videos().insert(part="snippet,status", body=body, media_body=media)
     response = req.execute()
     vid = response["id"]
-    print(f"YouTube投稿完了: https://youtube.com/shorts/{vid}")
+    if scheduled:
+        print(f"YouTube予約完了（翌朝6時公開）: https://youtube.com/shorts/{vid}")
+    else:
+        print(f"YouTube投稿完了: https://youtube.com/shorts/{vid}")
     return vid
 
 
@@ -445,7 +466,7 @@ def run_pipeline(topic: str, script_data: dict = None, audio_url: str = None, in
         instagram_url=INSTAGRAM_URL,
         tags_str=tags_str,
     )
-    yt_id = upload_youtube(video_path, title, description, tags)
+    yt_id = upload_youtube(video_path, title, description, tags, scheduled=True)
 
     # 5. サムネイルアップロード
     try:

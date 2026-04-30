@@ -11,3 +11,4 @@ gunicorn
 line-bot-sdk
 Pillow>=10.0.0
 pykakasi>=2.2.1
+tweepy>=4.14.0

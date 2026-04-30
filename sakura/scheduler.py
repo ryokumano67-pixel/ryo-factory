@@ -61,8 +61,18 @@ def send_line_notification() -> bool:
     service_url = os.getenv("SERVICE_URL", "https://ryo-factory.onrender.com")
     url = f"{service_url}/sakura/notify/{LINE_NOTIFY_USER_ID}"
     try:
+        import json as json_mod
         import requests
-        resp = requests.post(url, timeout=30)
+        # 生成したスクリプトファイルを読み込んでbodyに含める
+        scripts_dir = SAKURA_DIR / "scripts"
+        json_files = sorted(scripts_dir.glob("scripts_*.json"), reverse=True) if scripts_dir.exists() else []
+        payload = {}
+        if json_files:
+            with open(json_files[0], encoding="utf-8") as f:
+                data = json_mod.load(f)
+            payload = {"scripts": data.get("scripts", []), "script_path": str(json_files[0])}
+            log.info(f"スクリプトファイルをbodyに含めます: {json_files[0].name}")
+        resp = requests.post(url, json=payload, timeout=30)
         if resp.ok:
             log.info("✅ LINE 通知送信完了")
             return True

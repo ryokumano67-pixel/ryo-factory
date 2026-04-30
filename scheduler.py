@@ -54,15 +54,26 @@ def run_step(label: str, module_path: str) -> bool:
 
 
 def send_line_notification() -> bool:
-    """ryo-factoryの /notify エンドポイントを叩いてLINE通知を送る。"""
+    """ryo-factoryの /notify エンドポイントを叩いてLINE通知を送る。
+    Cron Jobコンテナで生成したスクリプトをbodyに含めて送信する。"""
     if not LINE_NOTIFY_USER_ID:
         log.warning("LINE_NOTIFY_USER_ID が未設定のため通知をスキップします")
         return False
     service_url = os.getenv("SERVICE_URL", "https://ryo-factory.onrender.com")
     url = f"{service_url}/notify/{LINE_NOTIFY_USER_ID}"
     try:
+        import json as json_mod
         import requests
-        resp = requests.post(url, timeout=30)
+        # 生成したスクリプトファイルを読み込んでbodyに含める
+        scripts_dir = BASE_DIR / "1_scripts"
+        json_files = sorted(scripts_dir.glob("scripts_*.json"), reverse=True)
+        payload = {}
+        if json_files:
+            with open(json_files[0], encoding="utf-8") as f:
+                data = json_mod.load(f)
+            payload = {"scripts": data.get("scripts", []), "script_path": str(json_files[0])}
+            log.info(f"スクリプトファイルをbodyに含めます: {json_files[0].name}")
+        resp = requests.post(url, json=payload, timeout=30)
         if resp.ok:
             log.info("✅ LINE 通知送信完了")
             return True

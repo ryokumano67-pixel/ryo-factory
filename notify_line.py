@@ -618,21 +618,15 @@ def notify(user_id):
 # ─── Hana投稿スケジューラー ───────────────────────────────────────────────────
 
 def _run_hana_post():
-    log.info("[Hana] X投稿開始")
-    LINE_USER_ID = os.getenv("LINE_USER_ID") or os.getenv("LINE_NOTIFY_USER_ID")
+    log.info("[Hana] 投稿開始")
     result = subprocess.run(
-        [sys.executable, str(BASE_DIR / "hana_x" / "post_x.py")],
+        [sys.executable, str(BASE_DIR / "hana_line_post.py")],
         capture_output=True, text=True, cwd=str(BASE_DIR),
     )
     if result.returncode != 0:
-        log.error(f"[Hana] X投稿失敗: {result.stderr[-300:]}")
-        if LINE_USER_ID:
-            push_message(LINE_USER_ID, f"⚠️ Hana X投稿失敗\n{result.stderr[-200:]}")
+        log.error(f"[Hana] 投稿失敗: {result.stderr[-300:]}")
     else:
-        log.info("[Hana] X投稿完了")
-        if LINE_USER_ID:
-            posted = result.stdout.strip()[-200:]
-            push_message(LINE_USER_ID, f"✅ Hana X投稿完了\n{posted}")
+        log.info("[Hana] 投稿完了")
 
 
 def _start_hana_scheduler():

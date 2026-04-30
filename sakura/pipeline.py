@@ -53,15 +53,15 @@ SAKURA_LOOK_IDS: list[str] = [
     "70a35d682b844639a33e06aa644477f5",
 ]
 
-# 背景カラーローテーション（フィットネス映えする色）
+# 背景カラーローテーション（ピンク系）
 BACKGROUND_COLORS = [
-    "#FFFFFF",  # 白（清潔感）
-    "#FFF0F5",  # ラベンダーブラッシュ（柔らか）
-    "#F0FFF0",  # ハニーデュー（爽やか緑）
-    "#FFF8E7",  # コーンシルク（朝の温かみ）
-    "#F0F8FF",  # アリスブルー（クール）
-    "#FFF5EE",  # シーシェル（ピーチ）
-    "#F5F5F5",  # ホワイトスモーク（モダン）
+    "#FFB6C1",  # ライトピンク
+    "#FF69B4",  # ホットピンク
+    "#FFC0CB",  # ピンク
+    "#FFD1DC",  # ペールピンク
+    "#FF85A1",  # ディープローズ
+    "#FFAEC9",  # ベビーピンク
+    "#FF91A4",  # サーモンピンク
 ]
 
 SKIP_YOUTUBE_UPLOAD = os.getenv("SAKURA_SKIP_UPLOAD", "true").lower() != "false"

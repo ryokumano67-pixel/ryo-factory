@@ -40,12 +40,33 @@ def init_dirs():
     print(f"[startup] DATA_DIR={DATA_DIR} 初期化完了")
 
 
+def restore_file_from_json_env(env_key: str, dest_path: Path):
+    """JSON形式の環境変数からファイルを復元する"""
+    json_str = os.getenv(env_key, "").strip()
+    if not json_str:
+        return
+    try:
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        dest_path.write_text(json_str, encoding="utf-8")
+        print(f"[startup] {env_key} → {dest_path}")
+    except Exception as e:
+        print(f"[startup] {env_key} 復元失敗: {e}")
+
+
 if __name__ == "__main__":
     init_dirs()
 
-    # YouTubeトークンをファイルに復元
-    restore_file_from_env("YOUTUBE_TOKEN_B64",        BASE_DIR / "youtube_token.json")
-    restore_file_from_env("SAKURA_YOUTUBE_TOKEN_B64", BASE_DIR / "sakura" / "sakura_youtube_token.json")
+    # YouTubeトークンをファイルに復元（JSON形式優先、なければB64形式）
+    if os.getenv("YOUTUBE_TOKEN_JSON"):
+        restore_file_from_json_env("YOUTUBE_TOKEN_JSON", BASE_DIR / "youtube_token.json")
+    else:
+        restore_file_from_env("YOUTUBE_TOKEN_B64", BASE_DIR / "youtube_token.json")
+
+    if os.getenv("SAKURA_YOUTUBE_TOKEN_JSON"):
+        restore_file_from_json_env("SAKURA_YOUTUBE_TOKEN_JSON", BASE_DIR / "sakura" / "sakura_youtube_token.json")
+    else:
+        restore_file_from_env("SAKURA_YOUTUBE_TOKEN_B64", BASE_DIR / "sakura" / "sakura_youtube_token.json")
+
     restore_file_from_env("YOUTUBE_CLIENT_SECRETS_B64", BASE_DIR / "client_secrets.json")
 
     print("[startup] 完了")

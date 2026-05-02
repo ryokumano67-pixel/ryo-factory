@@ -42,12 +42,12 @@ services:
       - key: YOUTUBE_CLIENT_SECRETS_B64
         sync: false
 
-  # サクラ 毎朝6時スケジューラー（JST = UTC 21:00）
+  # サクラ 月・水・金 6時スケジューラー（前日20:00 JST = 11:00 UTC に通知）
   - type: cron
     name: sakura-daily-6am
     env: python
     plan: starter
-    schedule: "0 21 * * *"
+    schedule: "0 11 * * 0,2,4"
     buildCommand: pip install -r requirements.txt
     startCommand: python startup.py && python sakura/scheduler.py --now
     envVars:

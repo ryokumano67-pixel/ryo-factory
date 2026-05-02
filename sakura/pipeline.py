@@ -85,7 +85,7 @@ DESCRIPTION_TEMPLATE = """{description}
 朝の60秒、サクラと一緒にやってみてね🌸
 
 ─────────────────────
-📌 毎朝6:00 新作ショート更新中
+📌 月・水・金 6:00 新作ショート更新中
 チャンネル登録＋🔔通知ONで見逃しゼロ！
 → {channel_url}
 ─────────────────────
@@ -97,7 +97,7 @@ DESCRIPTION_TEMPLATE = """{description}
 ※リンクから購入いただくとサクラの活動を応援できます🙏
 
 ─────────────────────
-📱 TikTok・Instagramも毎日更新中！
+📱 TikTok・Instagramも月・水・金更新中！
 ▶ TikTok → {tiktok_url}
 ▶ Instagram → {instagram_url}
 ─────────────────────
@@ -422,7 +422,7 @@ def upload_kaizen_youtube(video_path: Path, topic: str, english_script: str, tag
     description = f"""{english_script[:200]}...
 
 Start your day with Kaizen — 1% better every day 🌸
-New stretch every morning. Subscribe and move with me!
+New videos every Mon, Wed & Fri. Subscribe and move with me!
 
 #MorningStretch #Kaizen #SakuraKaizen #FitnessRoutine #Stretch"""
 

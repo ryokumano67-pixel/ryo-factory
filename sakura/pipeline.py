@@ -227,7 +227,7 @@ def generate_heygen_video(audio_url: str, index: int = 0) -> str:
     return video_id
 
 
-def wait_heygen(video_id: str, max_wait: int = 600) -> str:
+def wait_heygen(video_id: str, max_wait: int = 1200) -> str:
     print("HeyGenレンダリング待機中...")
     url = f"https://api.heygen.com/v1/video_status.get?video_id={video_id}"
     headers = {"X-Api-Key": HEYGEN_API_KEY}

@@ -300,7 +300,7 @@ def generate_heygen_video(audio_url, index: int = 0):
     return video_id
 
 
-def wait_for_heygen_video(video_id, max_wait=600):
+def wait_for_heygen_video(video_id, max_wait=1200):
     """HeyGenレンダリング完了を待機してダウンロードURLを返す"""
     print("HeyGenレンダリング待機中...")
     url = f"https://api.heygen.com/v1/video_status.get?video_id={video_id}"

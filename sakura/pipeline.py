@@ -75,6 +75,7 @@ BACKGROUND_COLORS = [
 SKIP_YOUTUBE_UPLOAD = os.getenv("SAKURA_SKIP_UPLOAD", "true").lower() != "false"
 
 RAKUTEN_ROOM_URL = "https://room.rakuten.co.jp/room_sakura-fitness-ai/items"
+AMAZON_US_URL = os.getenv("AMAZON_US_AFFILIATE_URL", "https://www.amazon.com/s?k=yoga+mat")  # TODO: アフィリエイトURL取得後に更新
 YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@sakura_stretch"
 TIKTOK_URL = "https://www.tiktok.com/@sakura_stretch"
 INSTAGRAM_URL = "https://www.instagram.com/sakura_stretch_official"
@@ -424,6 +425,14 @@ def upload_kaizen_youtube(video_path: Path, topic: str, english_script: str, tag
 Start your day with Kaizen — 1% better every day 🌸
 New videos every Mon, Wed & Fri. Subscribe and move with me!
 
+─────────────────────
+🛒 My favorite fitness gear on Amazon:
+▶ Yoga Mat / Foam Roller / Resistance Bands
+→ {AMAZON_US_URL}
+
+(As an Amazon Associate I earn from qualifying purchases 🙏)
+─────────────────────
+
 #MorningStretch #Kaizen #SakuraKaizen #FitnessRoutine #Stretch"""
 
     body = {
@@ -479,6 +488,16 @@ def run_kaizen_pipeline(topic: str, japanese_script: str, tags: list = None, ind
 
         if not SKIP_YOUTUBE_UPLOAD:
             yt_id = upload_kaizen_youtube(video_path, topic, english_script, tags or [])
+            try:
+                comment_text = (
+                    f"🛒 My favorite fitness gear on Amazon!\n"
+                    f"▶ Yoga Mat / Foam Roller / Resistance Bands\n"
+                    f"→ {AMAZON_US_URL}\n\n"
+                    f"(As an Amazon Associate I earn from qualifying purchases 🙏)"
+                )
+                add_kaizen_pinned_comment(yt_id, comment_text)
+            except Exception as ce:
+                print(f"[Kaizen] コメント投稿失敗（トークン再認証が必要かも）: {ce}")
             print(f"=== Kaizen完了: https://youtube.com/shorts/{yt_id} ===")
             return yt_id
         else:
@@ -520,6 +539,26 @@ def add_pinned_comment(video_id: str, text: str):
         },
     ).execute()
     print(f"コメント投稿完了: {video_id}")
+
+
+def add_kaizen_pinned_comment(video_id: str, text: str):
+    """Kaizenチャンネル動画にコメントを投稿する（force-ssl スコープ必要）"""
+    from googleapiclient.discovery import build
+    SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
+    creds = _get_kaizen_youtube_creds(SCOPES)
+    yt = build("youtube", "v3", credentials=creds)
+    yt.commentThreads().insert(
+        part="snippet",
+        body={
+            "snippet": {
+                "videoId": video_id,
+                "topLevelComment": {
+                    "snippet": {"textOriginal": text}
+                },
+            }
+        },
+    ).execute()
+    print(f"Kaizenコメント投稿完了: {video_id}")
 
 
 def _next_6am_jst() -> str:

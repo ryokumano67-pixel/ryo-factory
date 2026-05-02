@@ -3,6 +3,14 @@
     {
       "original": "床",
       "corrected": "ゆか"
+    },
+    {
+      "original": "おはよう",
+      "corrected": "おはよう、"
+    },
+    {
+      "original": "おはようございます",
+      "corrected": "おはようございます、"
     }
   ]
 }

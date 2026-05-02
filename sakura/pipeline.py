@@ -53,15 +53,20 @@ SAKURA_LOOK_IDS: list[str] = [
     "70a35d682b844639a33e06aa644477f5",
 ]
 
-# 背景カラーローテーション（ピンク系）
+KAIZEN_AVATAR_ID = "03c8db932875431c998c292c2240b411"  # Sakura Kaizen英語チャンネル用
+
+# 背景カラーローテーション（ピンクメイン＋アクセント）
 BACKGROUND_COLORS = [
     "#FFB6C1",  # ライトピンク
-    "#FF69B4",  # ホットピンク
     "#FFC0CB",  # ピンク
     "#FFD1DC",  # ペールピンク
-    "#FF85A1",  # ディープローズ
-    "#FFAEC9",  # ベビーピンク
-    "#FF91A4",  # サーモンピンク
+    "#FFFFFF",  # 白（清潔感）
+    "#FFB6C1",  # ライトピンク
+    "#FFF0F5",  # ラベンダーブラッシュ
+    "#FFD1DC",  # ペールピンク
+    "#FFF5EE",  # シーシェル（ピーチ）
+    "#FFB6C1",  # ライトピンク
+    "#F8F0FF",  # ラベンダー
 ]
 
 SKIP_YOUTUBE_UPLOAD = os.getenv("SAKURA_SKIP_UPLOAD", "true").lower() != "false"

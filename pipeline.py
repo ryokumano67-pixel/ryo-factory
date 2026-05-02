@@ -16,8 +16,7 @@ ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 HEYGEN_API_KEY = os.getenv("HEYGEN_API_KEY")
 HEYGEN_AVATAR_ID = os.getenv("HEYGEN_AVATAR_ID")
 VOICE_ID = "XrExE9yKIg1WjnnlVkGX"  # Matilda（ai_japan_labo用）
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
-          "https://www.googleapis.com/auth/youtube"]
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 TOKEN_FILE = BASE_DIR / "youtube_token.json"
 CLIENT_SECRETS_FILE = BASE_DIR / "client_secrets.json"
 TTS_CORRECTIONS_FILE = BASE_DIR / "ai_japan_labo_tts_corrections.json"

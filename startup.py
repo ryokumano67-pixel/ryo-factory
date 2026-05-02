@@ -67,6 +67,8 @@ if __name__ == "__main__":
     else:
         restore_file_from_env("SAKURA_YOUTUBE_TOKEN_B64", BASE_DIR / "sakura" / "sakura_youtube_token.json")
 
+    restore_file_from_json_env("KAIZEN_YOUTUBE_TOKEN_JSON", BASE_DIR / "sakura" / "kaizen_youtube_token.json")
+
     restore_file_from_env("YOUTUBE_CLIENT_SECRETS_B64", BASE_DIR / "client_secrets.json")
 
     print("[startup] 完了")

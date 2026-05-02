@@ -462,8 +462,8 @@ def _sakura_tts_preview(script: str) -> str:
 
 
 def _sakura_start_pipeline(user_id, chosen_script, topic):
-    """音声生成 → HeyGen動画 → YouTube投稿"""
-    push_message(user_id, "🎬 動画を生成中です！完了したらお知らせします📹")
+    """音声生成 → HeyGen動画 → YouTube投稿（Fitness） + Kaizen英語版を並走"""
+    push_message(user_id, "🎬 動画を生成中です！Fitness＋Kaizen英語版を同時制作します📹")
 
     def run():
         import re as re_mod
@@ -484,19 +484,37 @@ def _sakura_start_pipeline(user_id, chosen_script, topic):
                 yt_urls = re_mod.findall(r"YouTube投稿完了.*?(https://youtube\.com/shorts/\S+)", result.stdout)
                 vid_paths = re_mod.findall(r"動画生成完了（YouTube投稿スキップ中）: (\S+)", result.stdout)
                 if scheduled_urls:
-                    push_message(user_id, f"✅ 動画を予約しました！明朝6時に公開されます🌸\n{scheduled_urls[-1]}")
+                    push_message(user_id, f"✅ Fitness予約完了！明朝6時JST公開🌸\n{scheduled_urls[-1]}")
                 elif yt_urls:
-                    push_message(user_id, f"✅ サクラ動画投稿完了！\n{yt_urls[-1]}")
+                    push_message(user_id, f"✅ Fitness投稿完了！\n{yt_urls[-1]}")
                 elif vid_paths:
-                    push_message(user_id, f"✅ 動画生成完了！（投稿スキップ中）\n保存先: {vid_paths[-1]}")
+                    push_message(user_id, f"✅ Fitness動画生成完了！（スキップ中）\n{vid_paths[-1]}")
                 else:
-                    push_message(user_id, "✅ 動画生成完了！")
+                    push_message(user_id, "✅ Fitness動画生成完了！")
             else:
-                push_message(user_id, f"⚠️ エラー:\n{result.stderr[-500:]}")
+                push_message(user_id, f"⚠️ Fitnessエラー:\n{result.stderr[-500:]}")
         except Exception as e:
-            push_message(user_id, f"⚠️ パイプラインエラー: {e}")
+            push_message(user_id, f"⚠️ Fitnessパイプラインエラー: {e}")
+
+    def run_kaizen():
+        try:
+            sys.path.insert(0, str(BASE_DIR))
+            from sakura.pipeline import run_kaizen_pipeline
+            tags = chosen_script.get("tags", [])
+            yt_id = run_kaizen_pipeline(
+                topic=topic,
+                japanese_script=chosen_script.get("audio_text") or chosen_script["script"],
+                tags=tags,
+            )
+            if yt_id:
+                push_message(user_id, f"✅ Kaizen英語版予約完了！朝6時PST公開🌿\nhttps://youtube.com/shorts/{yt_id}")
+            else:
+                push_message(user_id, "✅ Kaizen英語版動画生成完了！（スキップ中）")
+        except Exception as e:
+            push_message(user_id, f"⚠️ Kaizenエラー: {e}")
 
     threading.Thread(target=run, daemon=True).start()
+    threading.Thread(target=run_kaizen, daemon=True).start()
 
 
 def _sakura_handle_pending(user_id, reply_token, text, session):

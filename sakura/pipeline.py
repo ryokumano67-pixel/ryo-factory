@@ -18,7 +18,8 @@ BASE_DIR = SAKURA_DIR.parent
 sys.path.insert(0, str(BASE_DIR))
 load_dotenv(BASE_DIR / ".env", override=True)
 
-VOICE_ID           = "9HdWw3q0ezIc6HGblORv"  # ２５歳女性（日本語ネイティブ）
+VOICE_ID           = "9HdWw3q0ezIc6HGblORv"  # Sakura日本語音声
+KAIZEN_VOICE_ID    = os.getenv("KAIZEN_VOICE_ID", "EXAVITQu4vr4xnSDxMaL")  # Bella（英語）
 HEYGEN_AVATAR_ID   = "b7788b99bfc8490f8bffd2afcc4e1481"
 HEYGEN_API_KEY     = os.getenv("HEYGEN_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
@@ -172,8 +173,8 @@ def generate_script(topic: str) -> dict:
         raise
 
 
-def generate_audio(text: str, output_path: Path) -> Path:
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+def generate_audio(text: str, output_path: Path, voice_id: str = VOICE_ID) -> Path:
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"}
     payload = {
         "text": text,
@@ -358,6 +359,132 @@ def _get_sakura_youtube_creds(scopes: list):
         TOKEN_FILE.write_text(creds.to_json())
         # env var は書き換えられないので Render 側は次回デプロイ時に更新が必要
     return creds
+
+
+def _get_kaizen_youtube_creds(scopes: list):
+    """Kaizen用YouTubeクレデンシャル取得"""
+    import json as _json
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+
+    TOKEN_FILE = SAKURA_DIR / "kaizen_youtube_token.json"
+    token_json = TOKEN_FILE.read_text(encoding="utf-8") if TOKEN_FILE.exists() else os.getenv("KAIZEN_YOUTUBE_TOKEN_JSON", "")
+    if not token_json:
+        raise RuntimeError("KAIZEN_YOUTUBE_TOKEN_JSON が未設定です")
+    creds = Credentials.from_authorized_user_info(_json.loads(token_json), scopes)
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        TOKEN_FILE.write_text(creds.to_json())
+    return creds
+
+
+def _next_6am_pst() -> str:
+    """次の朝6:00 PST (UTC-8) を RFC3339 形式で返す"""
+    PST = timezone(timedelta(hours=-8))
+    now = datetime.now(PST)
+    today_6am = now.replace(hour=6, minute=0, second=0, microsecond=0)
+    publish_at = today_6am + timedelta(days=1) if now >= today_6am else today_6am
+    return publish_at.strftime("%Y-%m-%dT06:00:00-08:00")
+
+
+def translate_to_english(japanese_script: str, topic: str) -> str:
+    """日本語台本を英語に翻訳"""
+    import anthropic
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    prompt = f"""Translate this Japanese morning stretch script to natural, energetic English for a US audience.
+Keep it under 60 seconds when spoken. Use friendly fitness instructor language. Maintain instructional tone.
+Output only the English script, nothing else.
+
+Topic: {topic}
+Japanese:
+{japanese_script}"""
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return resp.content[0].text.strip()
+
+
+def upload_kaizen_youtube(video_path: Path, topic: str, english_script: str, tags: list) -> str:
+    """Kaizenチャンネルに予約投稿（6am PST）"""
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+    creds = _get_kaizen_youtube_creds(SCOPES)
+    yt = build("youtube", "v3", credentials=creds)
+
+    publish_at = _next_6am_pst()
+    title = f"Morning {topic} Stretch | Kaizen with Sakura"
+    description = f"""{english_script[:200]}...
+
+Start your day with Kaizen — 1% better every day 🌸
+New stretch every morning. Subscribe and move with me!
+
+#MorningStretch #Kaizen #SakuraKaizen #FitnessRoutine #Stretch"""
+
+    body = {
+        "snippet": {"title": title, "description": description, "tags": tags, "categoryId": "22"},
+        "status": {"privacyStatus": "private", "publishAt": publish_at, "selfDeclaredMadeForKids": False},
+    }
+    media = MediaFileUpload(str(video_path), mimetype="video/mp4", resumable=True)
+    response = yt.videos().insert(part="snippet,status", body=body, media_body=media).execute()
+    vid = response["id"]
+    print(f"Kaizen YouTube予約完了（6am PST公開）: https://youtube.com/shorts/{vid}")
+    return vid
+
+
+def run_kaizen_pipeline(topic: str, japanese_script: str, tags: list = None, index: int = 0) -> str | None:
+    """Fitnessと並走する英語Kaizenパイプライン"""
+    print(f"\n=== Kaizenパイプライン開始: {topic} ===")
+    try:
+        english_script = translate_to_english(japanese_script, topic)
+        print(f"英語台本: {english_script[:80]}...")
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_name = (re.sub(r"[^a-zA-Z0-9_]", "", topic.replace(" ", "_")) or "kaizen") + f"_{timestamp}"
+
+        audio_dir = SAKURA_DIR / "audio"
+        audio_dir.mkdir(exist_ok=True)
+        audio_path = audio_dir / f"kaizen_{safe_name}.mp3"
+
+        generate_audio(english_script, audio_path, voice_id=KAIZEN_VOICE_ID)
+        audio_url = upload_audio(audio_path)
+
+        background = _pick_background(index + 1)
+        payload = {
+            "video_inputs": [{
+                "character": {"type": "avatar", "avatar_id": KAIZEN_AVATAR_ID, "avatar_style": "normal"},
+                "voice": {"type": "audio", "audio_url": audio_url},
+                "background": background,
+            }],
+            "dimension": {"width": 1080, "height": 1920},
+            "test": False,
+        }
+        headers = {"X-Api-Key": HEYGEN_API_KEY, "Content-Type": "application/json"}
+        resp = requests.post("https://api.heygen.com/v2/video/generate", headers=headers, json=payload, timeout=60)
+        if not resp.ok:
+            raise Exception(f"HeyGen Kaizen失敗: {resp.status_code} {resp.text}")
+        video_id = resp.json()["data"]["video_id"]
+
+        video_url = wait_heygen(video_id)
+
+        video_dir = SAKURA_DIR / "videos"
+        video_dir.mkdir(exist_ok=True)
+        video_path = video_dir / f"kaizen_{safe_name}.mp4"
+        download_video(video_url, video_path)
+
+        if not SKIP_YOUTUBE_UPLOAD:
+            yt_id = upload_kaizen_youtube(video_path, topic, english_script, tags or [])
+            print(f"=== Kaizen完了: https://youtube.com/shorts/{yt_id} ===")
+            return yt_id
+        else:
+            print(f"=== Kaizen動画生成完了（スキップ中）: {video_path} ===")
+            return None
+    except Exception as e:
+        print(f"[Kaizen] エラー: {e}")
+        return None
 
 
 def upload_thumbnail(video_id: str, thumb_path: Path):

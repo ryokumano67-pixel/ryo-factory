@@ -137,8 +137,22 @@ def _upload_litterbox(audio_path):
     raise Exception(f"litterbox: {resp.text[:100]}")
 
 
+def _upload_0x0(audio_path):
+    """0x0.st 永久保存 API"""
+    with open(audio_path, "rb") as f:
+        resp = requests.post(
+            "https://0x0.st",
+            files={"file": f},
+            timeout=120,
+        )
+    if resp.ok and resp.text.strip().startswith("http"):
+        return resp.text.strip()
+    raise Exception(f"0x0.st: {resp.text[:100]}")
+
+
 def upload_audio(audio_path):
     uploaders = [
+        ("0x0.st",      _upload_0x0),
         ("catbox.moe",  _upload_catbox),
         ("litterbox",   _upload_litterbox),
     ]

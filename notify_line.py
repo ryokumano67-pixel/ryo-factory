@@ -255,23 +255,31 @@ def _handle_pending(user_id, reply_token, text, session):
         chosen_script = scripts[index]
         keyword = chosen_script["keyword"]
 
+        sys.path.insert(0, str(BASE_DIR))
+        from pipeline import to_hiragana, fix_for_tts
+        audio_tts = fix_for_tts(chosen_script["script"])
+        audio_preview = to_hiragana(chosen_script["script"])
+
         sessions[user_id] = {
-            "state": "editing",
+            "state": "confirm",
             "selected_script": chosen_script,
+            "audio_text": audio_tts,
+            "audio_preview": audio_preview,
             "script_path": session["script_path"],
         }
         save_sessions(sessions)
 
-        script_preview = chosen_script["script"]
         msg = (
-            f"📝 選択した台本（{keyword}）\n\n"
-            f"{script_preview}\n\n"
+            f"📝 台本（{keyword}）\n\n"
+            f"{chosen_script['script']}\n\n"
+            f"🔊 読み上げ（ひらがな）:\n{audio_preview}\n\n"
             "─────────────────\n"
-            "「確定」→ そのまま動画生成\n"
-            "修正する場合 → 修正後の台本全文を送信"
+            "OK → 動画生成開始\n"
+            "読み方修正 → 修正後の読み方を全文送信\n"
+            "NG → 却下して再生成"
         )
         reply_message(reply_token, msg)
-        log.info(f"台本選択: keyword={keyword}, 編集待機中")
+        log.info(f"台本選択: keyword={keyword}, 読み方確認待機")
 
     elif text_lower.startswith("ng"):
         instruction = text_stripped[2:].lstrip(":： ").strip()
@@ -300,6 +308,64 @@ def _handle_pending(user_id, reply_token, text, session):
 
     else:
         reply_message(reply_token, "返信は OK / 1 / 2 / 3 / NG のいずれかで送ってください。")
+
+
+def _handle_confirm(user_id, reply_token, text, session):
+    """台本＋読み方確認ステート：OK→生成、テスト→読み方修正、NG→再生成"""
+    sessions = load_sessions()
+    text_stripped = text.strip()
+    text_lower = text_stripped.lower()
+    chosen_script = dict(session["selected_script"])
+
+    if text_lower in ("ok", "確定", "start"):
+        sys.path.insert(0, str(BASE_DIR))
+        from pipeline import extract_and_save_corrections
+        chosen_script["audio_text"] = session.get("audio_text", "")
+        save_script_to_txt(chosen_script)
+        sessions.pop(user_id, None)
+        save_sessions(sessions)
+        reply_message(reply_token, "✅ 制作開始します！")
+        log.info(f"制作開始: keyword={chosen_script['keyword']}")
+        _start_pipeline(user_id, chosen_script)
+
+    elif text_lower.startswith("ng"):
+        sessions.pop(user_id, None)
+        save_sessions(sessions)
+        reply_message(reply_token, "❌ 却下しました。台本を再生成して送り直します...")
+
+        def regenerate_and_notify():
+            subprocess.run(
+                [sys.executable, str(BASE_DIR / "1_scripts" / "generate_script.py")],
+                cwd=str(BASE_DIR),
+            )
+            try:
+                send_notification(user_id)
+            except Exception:
+                push_message(user_id, "⚠️ 再生成しましたが通知送信に失敗しました。")
+
+        threading.Thread(target=regenerate_and_notify, daemon=True).start()
+
+    else:
+        # 読み方修正
+        sys.path.insert(0, str(BASE_DIR))
+        from pipeline import extract_and_save_corrections
+        original_tts = session.get("audio_text", "")
+        if original_tts and text_stripped != original_tts:
+            extract_and_save_corrections(original_tts, text_stripped)
+            log.info(f"TTS補正を学習しました")
+
+        sessions[user_id] = {
+            "state": "confirm",
+            "selected_script": chosen_script,
+            "audio_text": text_stripped,
+            "audio_preview": text_stripped,
+            "script_path": session.get("script_path", ""),
+        }
+        save_sessions(sessions)
+        reply_message(
+            reply_token,
+            f"✅ 読み方を修正しました！\n\n🔊 読み上げ:\n{text_stripped}\n\n─────────────────\nOK → 動画生成開始\n修正する場合 → もう一度全文を送信"
+        )
 
 
 # ─── Sakura（朝ストレッチ）セッション処理 ─────────────────────────────────
@@ -570,7 +636,9 @@ def handle_approval(user_id, reply_token, text):
         reply_message(reply_token, "承認待ちの台本がありません。先にスケジューラーを実行してください。")
         return
     state = session.get("state", "pending")
-    if state == "pronunciation":
+    if state == "confirm":
+        _handle_confirm(user_id, reply_token, text, session)
+    elif state == "pronunciation":
         _handle_pronunciation(user_id, reply_token, text, session)
     elif state == "editing":
         _handle_editing(user_id, reply_token, text, session)

@@ -488,7 +488,6 @@ def run_kaizen_pipeline(topic: str, japanese_script: str, tags: list = None, ind
 
 
 def upload_thumbnail(video_id: str, thumb_path: Path):
-    """YouTube動画にサムネイルをアップロード"""
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
 
@@ -499,6 +498,26 @@ def upload_thumbnail(video_id: str, thumb_path: Path):
     media = MediaFileUpload(str(thumb_path), mimetype="image/jpeg")
     yt.thumbnails().set(videoId=video_id, media_body=media).execute()
     print(f"サムネイルアップロード完了: {video_id}")
+
+
+def add_pinned_comment(video_id: str, text: str):
+    """動画にチャンネルオーナーのコメントを投稿する"""
+    from googleapiclient.discovery import build
+    SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
+    creds = _get_sakura_youtube_creds(SCOPES)
+    yt = build("youtube", "v3", credentials=creds)
+    yt.commentThreads().insert(
+        part="snippet",
+        body={
+            "snippet": {
+                "videoId": video_id,
+                "topLevelComment": {
+                    "snippet": {"textOriginal": text}
+                },
+            }
+        },
+    ).execute()
+    print(f"コメント投稿完了: {video_id}")
 
 
 def _next_6am_jst() -> str:
@@ -612,6 +631,18 @@ def run_pipeline(topic: str, script_data: dict = None, audio_url: str = None, in
         upload_thumbnail(yt_id, thumb_path)
     except Exception as e:
         print(f"サムネイルエラー（投稿は完了）: {e}")
+
+    # 6. 固定コメント（楽天ROOMリンク）
+    try:
+        comment_text = (
+            f"🛒 サクラ愛用ストレッチグッズはこちら！\n"
+            f"▶ ヨガマット / フォームローラー / ストレッチポール\n"
+            f"→ {RAKUTEN_ROOM_URL}\n\n"
+            f"チャンネル登録＋🔔通知ONで毎朝6時の動画を見逃さない！"
+        )
+        add_pinned_comment(yt_id, comment_text)
+    except Exception as e:
+        print(f"コメント投稿エラー（投稿は完了）: {e}")
 
     print(f"=== 完了: https://youtube.com/shorts/{yt_id} ===")
     return yt_id

@@ -259,27 +259,21 @@ def _handle_pending(user_id, reply_token, text, session):
         from pipeline import to_hiragana, fix_for_tts
         audio_tts = fix_for_tts(chosen_script["script"])
         audio_preview = to_hiragana(chosen_script["script"])
+        chosen_script["audio_text"] = audio_tts
 
-        sessions[user_id] = {
-            "state": "confirm",
-            "selected_script": chosen_script,
-            "audio_text": audio_tts,
-            "audio_preview": audio_preview,
-            "script_path": session["script_path"],
-        }
+        sessions.pop(user_id, None)
         save_sessions(sessions)
 
         msg = (
-            f"📝 台本（{keyword}）\n\n"
-            f"{chosen_script['script']}\n\n"
+            f"✅ 「{keyword}」で動画生成を開始します！\n\n"
             f"🔊 読み上げ（ひらがな）:\n{audio_preview}\n\n"
-            "─────────────────\n"
-            "OK → 動画生成開始\n"
-            "読み方修正 → 修正後の読み方を全文送信\n"
-            "NG → 却下して再生成"
+            "─────\n"
+            "読み方が違ったら次の動画のためにLINEで教えてね📝"
         )
         reply_message(reply_token, msg)
-        log.info(f"台本選択: keyword={keyword}, 読み方確認待機")
+        log.info(f"台本選択・動画生成開始: keyword={keyword}")
+        save_script_to_txt(chosen_script)
+        _start_pipeline(user_id, chosen_script)
 
     elif text_lower.startswith("ng"):
         instruction = text_stripped[2:].lstrip(":： ").strip()
@@ -529,17 +523,17 @@ def _sakura_handle_pending(user_id, reply_token, text, session):
         chosen_script = scripts[index]
         topic = chosen_script.get("topic", chosen_script.get("keyword", "ストレッチ"))
         tts = _sakura_tts_preview(chosen_script["script"])
-        sessions[user_id] = {
-            "state": "confirm",
-            "selected_script": chosen_script,
-            "topic": topic,
-        }
+        chosen_script["audio_text"] = tts
+
+        sessions.pop(user_id, None)
         save_sakura_sessions(sessions)
+
         reply_message(
             reply_token,
-            f"✅ テーマ「{topic}」を選択\n\n📝 台本:\n{chosen_script['script']}\n\n🔊 読み上げ（TTS）:\n{tts}\n\n─────────────────\nOK → 動画生成開始\n読み上げを修正 → 修正後の全文を送信\nNG → 台本を再生成",
+            f"✅ 「{topic}」で動画生成を開始します！\n\n🔊 読み上げ:\n{tts}\n\n─────\n読み方が違ったら次の動画のためにLINEで教えてね📝",
         )
-        log.info(f"[Sakura] 台本選択・確認待機: topic={topic}")
+        log.info(f"[Sakura] 動画生成開始: topic={topic}")
+        _sakura_start_pipeline(user_id, chosen_script, topic)
 
     elif text_lower.startswith("ng"):
         instruction = text_stripped[2:].lstrip(":： ").strip()

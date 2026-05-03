@@ -77,6 +77,7 @@ SKIP_YOUTUBE_UPLOAD = os.getenv("SAKURA_SKIP_UPLOAD", "true").lower() != "false"
 RAKUTEN_ROOM_URL = "https://room.rakuten.co.jp/room_sakura-fitness-ai/items"
 AMAZON_US_URL = os.getenv("AMAZON_US_AFFILIATE_URL", "https://www.amazon.com/s?k=yoga+mat")  # TODO: アフィリエイトURL取得後に更新
 YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@sakura_stretch"
+KAIZEN_CHANNEL_URL = "https://www.youtube.com/@KaizenwithSakura"
 TIKTOK_URL = "https://www.tiktok.com/@sakura_stretch"
 INSTAGRAM_URL = "https://www.instagram.com/sakura_stretch_official"
 
@@ -390,26 +391,40 @@ def _next_6am_pst() -> str:
     return publish_at.strftime("%Y-%m-%dT06:00:00-08:00")
 
 
-def translate_to_english(japanese_script: str, topic: str) -> str:
-    """日本語台本を英語に翻訳"""
+def translate_to_english(japanese_script: str, topic: str) -> tuple[str, str]:
+    """日本語台本とトピックを英語に翻訳。(english_script, english_topic) を返す"""
     import anthropic
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    prompt = f"""Translate this Japanese morning stretch script to natural, energetic English for a US audience.
-Keep it under 60 seconds when spoken. Use friendly fitness instructor language. Maintain instructional tone.
-Output only the English script, nothing else.
+    prompt = f"""Translate the following for a US fitness YouTube Shorts channel.
 
-Topic: {topic}
-Japanese:
+1. Translate the topic name to natural English (2-5 words, e.g. "Calf Stretch", "Morning Hip Opener")
+2. Translate the script to natural, energetic English under 60 seconds when spoken.
+
+Output format (exactly):
+TOPIC: <English topic>
+SCRIPT: <English script>
+
+Japanese Topic: {topic}
+Japanese Script:
 {japanese_script}"""
     resp = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=500,
+        max_tokens=600,
         messages=[{"role": "user", "content": prompt}]
     )
-    return resp.content[0].text.strip()
+    text = resp.content[0].text.strip()
+    english_topic = topic
+    english_script = text
+    for line in text.splitlines():
+        if line.startswith("TOPIC:"):
+            english_topic = line.replace("TOPIC:", "").strip()
+        elif line.startswith("SCRIPT:"):
+            english_script = text[text.index("SCRIPT:") + 7:].strip()
+            break
+    return english_script, english_topic
 
 
-def upload_kaizen_youtube(video_path: Path, topic: str, english_script: str, tags: list) -> str:
+def upload_kaizen_youtube(video_path: Path, topic: str, english_script: str, tags: list, english_topic: str = "") -> str:
     """Kaizenチャンネルに予約投稿（6am PST）"""
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
@@ -419,7 +434,8 @@ def upload_kaizen_youtube(video_path: Path, topic: str, english_script: str, tag
     yt = build("youtube", "v3", credentials=creds)
 
     publish_at = _next_6am_pst()
-    title = f"Morning {topic} Stretch | Kaizen with Sakura"
+    display_topic = english_topic or topic
+    title = f"Morning {display_topic} | Kaizen with Sakura"
     description = f"""{english_script[:200]}...
 
 Start your day with Kaizen — 1% better every day 🌸
@@ -450,11 +466,12 @@ def run_kaizen_pipeline(topic: str, japanese_script: str, tags: list = None, ind
     """Fitnessと並走する英語Kaizenパイプライン"""
     print(f"\n=== Kaizenパイプライン開始: {topic} ===")
     try:
-        english_script = translate_to_english(japanese_script, topic)
+        english_script, english_topic = translate_to_english(japanese_script, topic)
+        print(f"英語トピック: {english_topic}")
         print(f"英語台本: {english_script[:80]}...")
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_name = (re.sub(r"[^a-zA-Z0-9_]", "", topic.replace(" ", "_")) or "kaizen") + f"_{timestamp}"
+        safe_name = (re.sub(r"[^a-zA-Z0-9_]", "", english_topic.replace(" ", "_")) or "kaizen") + f"_{timestamp}"
 
         audio_dir = SAKURA_DIR / "audio"
         audio_dir.mkdir(exist_ok=True)
@@ -487,7 +504,7 @@ def run_kaizen_pipeline(topic: str, japanese_script: str, tags: list = None, ind
         download_video(video_url, video_path)
 
         if not SKIP_YOUTUBE_UPLOAD:
-            yt_id = upload_kaizen_youtube(video_path, topic, english_script, tags or [])
+            yt_id = upload_kaizen_youtube(video_path, topic, english_script, tags or [], english_topic=english_topic)
             try:
                 comment_text = (
                     f"🛒 My favorite fitness gear on Amazon!\n"

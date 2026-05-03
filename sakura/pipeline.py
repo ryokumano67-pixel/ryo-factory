@@ -435,7 +435,10 @@ def upload_kaizen_youtube(video_path: Path, topic: str, english_script: str, tag
 
     publish_at = _next_6am_pst()
     display_topic = english_topic or topic
-    title = f"Morning {display_topic} | Kaizen with Sakura"
+    clean_topic = display_topic.strip()
+    if clean_topic.lower().startswith("morning "):
+        clean_topic = clean_topic[8:]
+    title = f"Morning {clean_topic} | Kaizen with Sakura"
     description = f"""{english_script[:200]}...
 
 Start your day with Kaizen — 1% better every day 🌸

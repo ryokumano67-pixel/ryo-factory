@@ -62,6 +62,26 @@ services:
       - key: LINE_NOTIFY_USER_ID
         sync: false
 
+  # 週次チャンネル分析（月曜9:00 UTC = 月曜18:00 JST）
+  - type: cron
+    name: weekly-analysis
+    env: python
+    plan: starter
+    schedule: "0 9 * * 1"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python startup.py && python weekly_analysis.py
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SAKURA_YOUTUBE_TOKEN_JSON
+        sync: false
+      - key: YOUTUBE_TOKEN_JSON
+        sync: false
+
   # AI Japan Labo 火・木・土スケジューラー（月・水・金 22:00 UTC = 火・木・土 7:00 JST）
   - type: cron
     name: ai-japan-daily-7am

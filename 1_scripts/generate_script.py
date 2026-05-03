@@ -62,6 +62,34 @@ SYSTEM_PROMPT = """あなたはYouTubeショート動画の敏腕脚本家です
 }"""
 
 
+DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR)))
+
+
+def load_performance_insights() -> str:
+    """週次分析の洞察をプロンプト追記用テキストとして返す"""
+    insights_file = DATA_DIR / "performance_insights.json"
+    if not insights_file.exists():
+        return ""
+    try:
+        data = json.load(open(insights_file))
+        ch = data.get("channels", {}).get("ai_japan", {})
+        if not ch:
+            return ""
+        lines = ["\n【過去データからの学習（自動更新）】"]
+        if ch.get("top_title_patterns"):
+            lines.append(f"- 伸びるタイトルパターン: {', '.join(ch['top_title_patterns'])}")
+        if ch.get("top_topics"):
+            lines.append(f"- 伸びるトピック: {', '.join(ch['top_topics'])}")
+        if ch.get("avoid_patterns"):
+            lines.append(f"- 避けるパターン: {', '.join(ch['avoid_patterns'])}")
+        if ch.get("recommended_hook"):
+            lines.append(f"- 推奨フック例: {ch['recommended_hook']}")
+        lines.append(f"（最終更新: {data.get('updated_at', '?')}）")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 def load_latest_trends() -> dict:
     """0_trends フォルダから最新のトレンドJSONを読み込む。"""
     trends_dir = BASE_DIR / "0_trends"
@@ -98,10 +126,13 @@ def generate_script_for_keyword(client: anthropic.Anthropic, keyword_data: dict)
     kw = keyword_data["keyword"]
     log.info(f"台本生成中: {kw}")
 
+    insights = load_performance_insights()
+    system = SYSTEM_PROMPT + insights if insights else SYSTEM_PROMPT
+
     message = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=1500,
-        system=SYSTEM_PROMPT,
+        system=system,
         messages=[{"role": "user", "content": build_user_prompt(keyword_data)}],
     )
 

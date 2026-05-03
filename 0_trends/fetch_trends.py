@@ -33,14 +33,39 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# 調査対象のシードキーワード（テクノロジー・AI関連）
+# 調査対象のシードキーワード（テクノロジー・AI関連・多様なテーマ）
 SEED_KEYWORDS = [
-    "生成AI", "ChatGPT", "Claude AI", "Gemini AI", "画像生成AI",
-    "AI動画", "機械学習", "プログラミング入門", "Python AI", "ノーコード",
+    # AIツール実践
+    "ChatGPT 使い方", "Claude 使い方", "Gemini 活用", "AI 仕事効率化",
+    "ChatGPT プロンプト", "AI 副業 稼ぐ", "AI ライティング 自動化",
+    # 動画・画像生成
+    "AI 動画生成", "HeyGen 使い方", "Runway 使い方", "画像生成AI 使い方",
+    # 自動化・時短
+    "AI 自動化", "Notion AI 使い方", "Make 自動化", "Zapier 使い方",
+    # 副業・収益化
+    "AI 副業 2025", "AI YouTube 自動化", "AIで稼ぐ", "AI コンテンツ作成",
+    # ツール比較・Tips
+    "AIツール おすすめ", "AI 無料ツール", "生成AI 活用術",
 ]
 
 # YouTube検索で競合調査する際の最大結果数
 YOUTUBE_MAX_RESULTS = 10
+
+
+def fetch_realtime_trends() -> list[str]:
+    """日本のリアルタイムトレンドからキーワードを取得してSEED_KEYWORDSに追加"""
+    try:
+        pytrends = TrendReq(hl="ja-JP", tz=540, timeout=(10, 25))
+        trending = pytrends.trending_searches(pn='japan')
+        terms = trending[0].tolist()[:30]
+        # AI・テック・お金・副業に関連しそうなものだけ抽出
+        relevant_keywords = ["AI", "ChatGPT", "副業", "節約", "投資", "仕事", "ツール", "自動", "収益", "稼ぐ", "効率"]
+        filtered = [t for t in terms if any(kw in t for kw in relevant_keywords)]
+        log.info(f"リアルタイムトレンド取得: {filtered[:5]}")
+        return filtered[:5]
+    except Exception as e:
+        log.warning(f"リアルタイムトレンド取得失敗: {e}")
+        return []
 
 
 def fetch_google_trends(keywords: list[str], max_retries: int = 3) -> dict[str, int]:
@@ -167,7 +192,9 @@ def main() -> Path:
 
     youtube = build("youtube", "v3", developerKey=GOOGLE_API_KEY)
 
-    scores = fetch_google_trends(SEED_KEYWORDS)
+    realtime = fetch_realtime_trends()
+    all_keywords = list(dict.fromkeys(SEED_KEYWORDS + realtime))  # 重複除去
+    scores = fetch_google_trends(all_keywords)
     if not scores:
         log.warning("Google Trends からスコアを取得できませんでした。全キーワードを均等スコアでフォールバックします")
         scores = {kw: 50 for kw in SEED_KEYWORDS}

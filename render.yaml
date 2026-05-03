@@ -62,12 +62,12 @@ services:
       - key: LINE_NOTIFY_USER_ID
         sync: false
 
-  # AI Japan Labo 土曜スケジューラー（金曜22:00 UTC = 土曜7:00 JST）
+  # AI Japan Labo 火・木・土スケジューラー（月・水・金 22:00 UTC = 火・木・土 7:00 JST）
   - type: cron
     name: ai-japan-daily-7am
     env: python
     plan: starter
-    schedule: "0 22 * * 5"
+    schedule: "0 22 * * 1,3,5"
     buildCommand: pip install -r requirements.txt
     startCommand: python startup.py && python scheduler.py --now
     envVars:

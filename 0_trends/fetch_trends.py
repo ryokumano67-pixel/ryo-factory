@@ -68,7 +68,7 @@ def fetch_realtime_trends() -> list[str]:
         return []
 
 
-def fetch_google_trends(keywords: list[str], max_retries: int = 3) -> dict[str, int]:
+def fetch_google_trends(keywords: list[str], max_retries: int = 2) -> dict[str, int]:
     """pytrends でキーワードごとの関心度スコアを取得する。"""
     log.info("Google Trends の取得を開始します")
     pytrends = TrendReq(hl="ja-JP", tz=540, timeout=(10, 25))
@@ -87,15 +87,18 @@ def fetch_google_trends(keywords: list[str], max_retries: int = 3) -> dict[str, 
                             scores[kw] = int(df[kw].mean())
                 break
             except Exception as e:
-                wait = 10 * (2 ** attempt)  # 10s, 20s, 40s
+                err_str = str(e)
+                # 429はリトライしても無駄なので即座に諦める
+                if "429" in err_str or "Too Many Requests" in err_str:
+                    log.warning(f"Google Trends レート制限 (429) — Trends取得を中止してフォールバックします")
+                    return scores
+                wait = 10 * (2 ** attempt)  # 10s, 20s
                 if attempt < max_retries - 1:
                     log.warning(f"Trends 取得エラー (batch={batch}, attempt={attempt+1}): {e} — {wait}秒後にリトライ")
                     time.sleep(wait)
                 else:
                     log.warning(f"Trends 取得エラー (batch={batch}): {e} — スキップします")
-        else:
-            pass
-        time.sleep(5)  # バッチ間のレート制限対策
+        time.sleep(3)  # バッチ間のレート制限対策
 
     log.info(f"Trends スコア取得完了: {scores}")
     return scores
@@ -189,6 +192,19 @@ def save_results(keywords: list[dict]) -> Path:
     return output_path
 
 
+def _date_based_fallback(top_n: int = 3) -> list[dict]:
+    """Google Trends失敗時：日付ベースでSEED_KEYWORDSをローテーション（YouTube API不要）"""
+    from datetime import datetime as _dt
+    day = _dt.now().timetuple().tm_yday
+    start = (day * top_n) % len(SEED_KEYWORDS)
+    kws = [SEED_KEYWORDS[(start + i) % len(SEED_KEYWORDS)] for i in range(top_n)]
+    log.info(f"日付ベースフォールバック: {kws}")
+    return [
+        {"keyword": kw, "trend_score": 50, "youtube_competition": {"video_count": 0, "avg_views": 0, "top_titles": []}, "opportunity_score": 50}
+        for kw in kws
+    ]
+
+
 def main() -> Path:
     if not GOOGLE_API_KEY:
         log.error("GOOGLE_API_KEY が設定されていません")
@@ -200,8 +216,13 @@ def main() -> Path:
     all_keywords = list(dict.fromkeys(SEED_KEYWORDS + realtime))  # 重複除去
     scores = fetch_google_trends(all_keywords)
     if not scores:
-        log.warning("Google Trends からスコアを取得できませんでした。全キーワードを均等スコアでフォールバックします")
-        scores = {kw: 50 for kw in SEED_KEYWORDS}
+        log.warning("Google Trends スコアなし → 日付ベースフォールバックで3件確定（YouTube API省略）")
+        top_keywords = _date_based_fallback()
+        output_path = save_results(top_keywords)
+        log.info("=== フォールバックキーワード ===")
+        for i, kw in enumerate(top_keywords, 1):
+            log.info(f"{i}. {kw['keyword']}")
+        return output_path
 
     top_keywords = select_top_keywords(scores, youtube)
     output_path = save_results(top_keywords)

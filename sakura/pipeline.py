@@ -413,7 +413,7 @@ Japanese Script:
         messages=[{"role": "user", "content": prompt}]
     )
     text = resp.content[0].text.strip()
-    english_topic = topic
+    english_topic = ""
     english_script = text
     for line in text.splitlines():
         if line.startswith("TOPIC:"):
@@ -421,6 +421,16 @@ Japanese Script:
         elif line.startswith("SCRIPT:"):
             english_script = text[text.index("SCRIPT:") + 7:].strip()
             break
+
+    # 日本語が残っていたら再翻訳
+    if not english_topic or any(ord(c) > 0x3000 for c in english_topic):
+        fallback = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=50,
+            messages=[{"role": "user", "content": f"Translate to English (2-4 words only): {topic}"}]
+        )
+        english_topic = fallback.content[0].text.strip()
+
     return english_script, english_topic
 
 

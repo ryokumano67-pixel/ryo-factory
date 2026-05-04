@@ -147,6 +147,18 @@ def send_notification(to):
     log.info(f"台本通知を送信しました → {to}")
 
 
+def _sanitize_for_json(obj):
+    """制御文字を除去してJSONエンコードエラーを防ぐ"""
+    import re
+    if isinstance(obj, str):
+        return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', obj)
+    elif isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_for_json(i) for i in obj]
+    return obj
+
+
 def _start_pipeline(user_id, chosen_script):
     push_message(user_id, "動画生成を開始します！完了したらお知らせします📹")
 
@@ -154,7 +166,7 @@ def _start_pipeline(user_id, chosen_script):
         try:
             tmp_file = BASE_DIR / "tmp_pipeline_script.json"
             tmp_file.write_text(
-                json.dumps({"scripts": [chosen_script]}, ensure_ascii=False),
+                json.dumps({"scripts": [_sanitize_for_json(chosen_script)]}, ensure_ascii=False),
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -259,21 +271,26 @@ def _handle_pending(user_id, reply_token, text, session):
         from pipeline import to_hiragana, fix_for_tts
         audio_tts = fix_for_tts(chosen_script["script"])
         audio_preview = to_hiragana(chosen_script["script"])
-        chosen_script["audio_text"] = audio_tts
 
-        sessions.pop(user_id, None)
+        sessions[user_id] = {
+            "state": "confirm",
+            "selected_script": chosen_script,
+            "audio_text": audio_tts,
+            "audio_preview": audio_preview,
+            "script_path": session.get("script_path", ""),
+        }
         save_sessions(sessions)
 
         msg = (
-            f"✅ 「{keyword}」で動画生成を開始します！\n\n"
+            f"✅ 「{keyword}」を選択しました！\n\n"
             f"🔊 読み上げ（ひらがな）:\n{audio_preview}\n\n"
-            "─────\n"
-            "読み方が違ったら次の動画のためにLINEで教えてね📝"
+            "─────────────────\n"
+            "「確定」→ このまま動画生成\n"
+            "修正 → 修正後の読み上げ全文を送信\n"
+            "NG → 再生成"
         )
         reply_message(reply_token, msg)
-        log.info(f"台本選択・動画生成開始: keyword={keyword}")
-        save_script_to_txt(chosen_script)
-        _start_pipeline(user_id, chosen_script)
+        log.info(f"台本選択・発音確認待機: keyword={keyword}")
 
     elif text_lower.startswith("ng"):
         instruction = text_stripped[2:].lstrip(":： ").strip()
@@ -464,7 +481,7 @@ def _sakura_start_pipeline(user_id, chosen_script, topic):
         try:
             tmp_file = SAKURA_DIR / "tmp_pipeline_script.json"
             tmp_file.write_text(
-                json.dumps({"scripts": [chosen_script]}, ensure_ascii=False),
+                json.dumps({"scripts": [_sanitize_for_json(chosen_script)]}, ensure_ascii=False),
                 encoding="utf-8",
             )
             result = subprocess.run(

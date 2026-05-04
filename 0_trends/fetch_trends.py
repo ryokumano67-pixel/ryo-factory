@@ -146,6 +146,10 @@ def fetch_youtube_competition(keyword: str, youtube) -> dict:
 def select_top_keywords(scores: dict[str, int], youtube, top_n: int = 3) -> list[dict]:
     """Trendsスコア上位キーワードにYouTube競合情報を付加して返す。"""
     sorted_kws = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    # スコアが足りない場合はSEED_KEYWORDSからフォールバック補充
+    scored_kws = set(kw for kw, _ in sorted_kws)
+    fallbacks = [(kw, 50) for kw in SEED_KEYWORDS if kw not in scored_kws]
+    sorted_kws = sorted_kws + fallbacks
     top = sorted_kws[:top_n * 2]  # 余裕を持って上位を調査
 
     results = []

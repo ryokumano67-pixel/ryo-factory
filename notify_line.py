@@ -165,9 +165,8 @@ def _start_pipeline(user_id, chosen_script):
     def run():
         try:
             tmp_file = BASE_DIR / "tmp_pipeline_script.json"
-            tmp_file.write_text(
-                json.dumps({"scripts": [_sanitize_for_json(chosen_script)]}, ensure_ascii=False),
-                encoding="utf-8",
+            tmp_file.write_bytes(
+                json.dumps({"scripts": [_sanitize_for_json(chosen_script)]}, ensure_ascii=True).encode("ascii")
             )
             result = subprocess.run(
                 [sys.executable, str(BASE_DIR / "pipeline.py"), str(tmp_file)],
@@ -480,9 +479,8 @@ def _sakura_start_pipeline(user_id, chosen_script, topic):
         import re as re_mod
         try:
             tmp_file = SAKURA_DIR / "tmp_pipeline_script.json"
-            tmp_file.write_text(
-                json.dumps({"scripts": [_sanitize_for_json(chosen_script)]}, ensure_ascii=False),
-                encoding="utf-8",
+            tmp_file.write_bytes(
+                json.dumps({"scripts": [_sanitize_for_json(chosen_script)]}, ensure_ascii=True).encode("ascii")
             )
             result = subprocess.run(
                 [sys.executable, str(SAKURA_DIR / "pipeline.py"),

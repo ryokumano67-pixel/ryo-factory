@@ -2,6 +2,7 @@ import os
 import json
 import time
 import requests
+from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
@@ -441,6 +442,64 @@ def upload_to_instagram(video_path, caption):
     return None
 
 
+# TTS変換で書き換えたもの→YouTubeタイトルでは元の表記に戻す
+TITLE_RESTORE = {
+    "生成エーアイ": "生成AI",
+    "エーアイ": "AI",
+    "チャットジーピーティー": "ChatGPT",
+    "ジーピーティー": "GPT",
+    "ユーチューブ": "YouTube",
+    "エスエヌエス": "SNS",
+    "デジタルトランスフォーメーション": "DX",
+    "エヌエフティー": "NFT",
+    "アイティー": "IT",
+    "ピーアール": "PR",
+    "パソコン": "PC",
+    "エーアール": "AR",
+    "ブイアール": "VR",
+    "オーケー": "OK",
+}
+
+UPLOADED_KEYWORDS_FILE = BASE_DIR / "uploaded_keywords.json"
+
+
+def _load_uploaded_keywords() -> dict:
+    if UPLOADED_KEYWORDS_FILE.exists():
+        with open(UPLOADED_KEYWORDS_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def _mark_keyword_uploaded(keyword: str, video_id: str):
+    data = _load_uploaded_keywords()
+    data[keyword] = {"video_id": video_id, "uploaded_at": datetime.now().isoformat()}
+    with open(UPLOADED_KEYWORDS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _was_recently_uploaded(keyword: str, days: int = 21) -> bool:
+    from datetime import timedelta
+    data = _load_uploaded_keywords()
+    if keyword not in data:
+        return False
+    uploaded_at_str = data[keyword].get("uploaded_at", "")
+    try:
+        uploaded_at = datetime.fromisoformat(uploaded_at_str)
+        if datetime.now() - uploaded_at < timedelta(days=days):
+            print(f"重複スキップ: 「{keyword}」は{days}日以内に投稿済み ({uploaded_at_str[:10]})")
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def sanitize_youtube_title(title: str) -> str:
+    """TTS用の読み仮名をYouTubeタイトルでは元の表記に戻す"""
+    for wrong, correct in sorted(TITLE_RESTORE.items(), key=lambda x: -len(x[0])):
+        title = title.replace(wrong, correct)
+    return title
+
+
 def _video_index() -> int:
     """これまでの投稿数をカウントしてlook/背景のローテーション番号を決める"""
     video_dir = BASE_DIR / "3_video"
@@ -449,6 +508,10 @@ def _video_index() -> int:
 
 def run_pipeline(script_data, keyword):
     print(f"\n=== パイプライン開始: {keyword} ===")
+
+    if _was_recently_uploaded(keyword):
+        return None
+
     index = _video_index()
 
     # 1. 発音テキスト（手動修正済みがあればそれを使用、なければ自動変換+学習補正）
@@ -474,17 +537,19 @@ def run_pipeline(script_data, keyword):
     video_path = BASE_DIR / "3_video" / f"video_{keyword_safe}.mp4"
     download_video(heygen_video_url, video_path)
 
-    # 6. YouTube投稿
-    title = script_data["title_candidates"][0] + " #shorts"
+    # 6. YouTube投稿（タイトルのTTS読み仮名を元に戻す）
+    raw_title = script_data["title_candidates"][0]
+    title = sanitize_youtube_title(raw_title) + " #shorts"
     description = script_data.get("description", "") + "\n\n#shorts #AI #ショート動画"
     tags = script_data.get("tags", []) + ["shorts", "ショート動画"]
     video_id = upload_to_youtube(video_path, title, description, tags)
 
     # 7. サムネイル自動生成・アップロード
-    thumb_path = generate_thumbnail(video_path, script_data["title_candidates"][0])
+    thumb_path = generate_thumbnail(video_path, sanitize_youtube_title(raw_title))
     if thumb_path:
         upload_thumbnail(video_id, thumb_path)
 
+    _mark_keyword_uploaded(keyword, video_id)
     print(f"=== 完了: https://youtube.com/shorts/{video_id} ===")
     return video_id
 

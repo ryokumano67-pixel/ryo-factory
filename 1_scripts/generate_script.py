@@ -43,6 +43,8 @@ SYSTEM_PROMPT = """あなたはYouTubeショート動画の敏腕脚本家です
 - 口語体・話し言葉で書く
 - 抽象的なニュースや概念ではなく「今すぐ試せる」具体的な内容にする
 - AI・ChatGPT・Claude・Notionなど英語の固有名詞はそのまま英語で書く（カタカナ不可）
+- 「生成AI」は必ず「生成AI」と表記する（「生成エーアイ」「せいせいえーあい」などに変換しない）
+- title_candidatesのタイトルは視聴者が読む文字として書く。読み仮名・ひらがな変換は一切しない
 - 1行は意味のまとまりで区切り、最大25文字以内にする
 - 改行は意味・テンポの切れ目のみ（句読点ごとに改行しない）
 - 段落（シーン）の区切りは空行を入れる
@@ -174,6 +176,31 @@ def save_scripts(scripts: list[dict], trends_fetched_at: str) -> Path:
     return output_path
 
 
+def _load_uploaded_keywords() -> dict:
+    """pipeline.pyが記録したアップロード済みキーワードを読み込む"""
+    uploaded_file = BASE_DIR / "uploaded_keywords.json"
+    if uploaded_file.exists():
+        with open(uploaded_file, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def _was_recently_uploaded(keyword: str, days: int = 21) -> bool:
+    from datetime import timedelta
+    data = _load_uploaded_keywords()
+    if keyword not in data:
+        return False
+    uploaded_at_str = data[keyword].get("uploaded_at", "")
+    try:
+        uploaded_at = datetime.fromisoformat(uploaded_at_str)
+        if datetime.now() - uploaded_at < timedelta(days=days):
+            log.info(f"スキップ（{days}日以内に投稿済み）: {keyword} ({uploaded_at_str[:10]})")
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def main() -> Path:
     if not ANTHROPIC_API_KEY:
         log.error("ANTHROPIC_API_KEY が設定されていません")
@@ -184,12 +211,15 @@ def main() -> Path:
 
     scripts = []
     for kw_data in trends_data["keywords"]:
+        kw = kw_data["keyword"]
+        if _was_recently_uploaded(kw):
+            continue
         try:
             script = generate_script_for_keyword(client, kw_data)
             scripts.append(script)
             log.info(f"  タイトル候補: {script.get('title_candidates', [])}")
         except Exception as e:
-            log.error(f"台本生成エラー ({kw_data['keyword']}): {e}")
+            log.error(f"台本生成エラー ({kw}): {e}")
 
     if not scripts:
         log.error("台本を1件も生成できませんでした")

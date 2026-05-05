@@ -202,8 +202,10 @@ def to_hiragana(text):
 
 def load_tts_corrections():
     if TTS_CORRECTIONS_FILE.exists():
-        with open(TTS_CORRECTIONS_FILE, encoding="utf-8") as f:
-            return json.load(f)
+        import re as _re
+        raw = TTS_CORRECTIONS_FILE.read_text(encoding="utf-8", errors="replace")
+        raw = _re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', raw)
+        return json.loads(raw, strict=False)
     return []
 
 
@@ -465,8 +467,10 @@ UPLOADED_KEYWORDS_FILE = BASE_DIR / "uploaded_keywords.json"
 
 def _load_uploaded_keywords() -> dict:
     if UPLOADED_KEYWORDS_FILE.exists():
-        with open(UPLOADED_KEYWORDS_FILE, encoding="utf-8") as f:
-            return json.load(f)
+        import re as _re
+        raw = UPLOADED_KEYWORDS_FILE.read_text(encoding="utf-8", errors="replace")
+        raw = _re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', raw)
+        return json.loads(raw, strict=False)
     return {}
 
 
@@ -555,15 +559,19 @@ def run_pipeline(script_data, keyword):
 
 if __name__ == "__main__":
     import sys
+    import re as _re
     script_file = sys.argv[1] if len(sys.argv) > 1 else None
     if not script_file:
         scripts_dir = BASE_DIR / "1_scripts"
         json_files = sorted(scripts_dir.glob("scripts_*.json"), reverse=True)
         script_file = str(json_files[0])
-    
-    with open(script_file, encoding="utf-8") as f:
-        data = json.load(f)
-    
+
+    with open(script_file, encoding="utf-8", errors="replace") as f:
+        raw = f.read()
+    # 制御文字を除去してからstrict=Falseで解析（Python 3.14対応）
+    raw = _re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', raw)
+    data = json.loads(raw, strict=False)
+
     for script in data["scripts"]:
         keyword = script["keyword"].replace("/", "_").replace(" ", "_")
         run_pipeline(script, keyword)

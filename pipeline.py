@@ -566,11 +566,22 @@ if __name__ == "__main__":
         json_files = sorted(scripts_dir.glob("scripts_*.json"), reverse=True)
         script_file = str(json_files[0])
 
-    with open(script_file, encoding="utf-8", errors="replace") as f:
-        raw = f.read()
-    # 制御文字を除去してからstrict=Falseで解析（Python 3.14対応）
+    print(f"[DEBUG] script_file={script_file}", file=sys.stderr)
+    with open(script_file, "rb") as f:
+        raw_bytes = f.read()
+    print(f"[DEBUG] file_size={len(raw_bytes)}, first110bytes={raw_bytes[:110]}", file=sys.stderr)
+    if len(raw_bytes) > 98:
+        print(f"[DEBUG] byte_at_98=0x{raw_bytes[98]:02x} char={repr(chr(raw_bytes[98]))}", file=sys.stderr)
+    raw = raw_bytes.decode("utf-8", errors="replace")
+    # 全制御文字（\nも含む）をJSON内の文字列内でのみ適切に処理
     raw = _re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', raw)
-    data = json.loads(raw, strict=False)
+    # 残る\n\r\tはjson.dumpsが\n \r \tとして書いてるはずだが、念のためstrict=Falseを試み
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        # strict=Falseがきかない場合、文字列内のリテラル制御文字をエスケープ
+        raw2 = _re.sub(r'[\x00-\x1f]', lambda m: f'\\u{ord(m.group(0)):04x}', raw)
+        data = json.loads(raw2)
 
     for script in data["scripts"]:
         keyword = script["keyword"].replace("/", "_").replace(" ", "_")

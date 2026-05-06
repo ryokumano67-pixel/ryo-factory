@@ -87,7 +87,7 @@ DESCRIPTION_TEMPLATE = """{description}
 朝の60秒、サクラと一緒にやってみてね🌸
 
 ─────────────────────
-📌 月・水・金 6:00 新作ショート更新中
+📌 毎日 6:00 新作ショート更新中
 チャンネル登録＋🔔通知ONで見逃しゼロ！
 → {channel_url}
 ─────────────────────
@@ -96,12 +96,16 @@ DESCRIPTION_TEMPLATE = """{description}
 ▶ ヨガマット / フォームローラー / ストレッチポール
 → {rakuten_url}
 
-※リンクから購入いただくとサクラの活動を応援できます🙏
-
 ─────────────────────
-📱 TikTok・Instagramも月・水・金更新中！
-▶ TikTok → {tiktok_url}
-▶ Instagram → {instagram_url}
+▼ ヨガ・フィットネス体験
+🧘 ホットヨガスタジオLAVA（無料体験）→ https://px.a8.net/svt/ejp?a8mat=4B3K2R+201GZ6+1O96+5ZEMQ
+🧘 本格オンラインヨガ SOELU → https://px.a8.net/svt/ejp?a8mat=4B3K2R+1THPBM+4EPM+631SY
+👗 ヨガウェア LITHEE → https://px.a8.net/svt/ejp?a8mat=4B3K2R+1Y965U+28X2+TSYJL
+
+▼ ゴルフ・スポーツ
+⛳ RIZAPゴルフ → https://px.a8.net/svt/ejp?a8mat=4B3K2R+1MXXO2+CW6+BFB3K3
+🏋️ ライザップ → https://px.a8.net/svt/ejp?a8mat=4B3K2R+1MCI2A+3D3Q+62ENM
+🏃 スーパースポーツゼビオ → https://px.a8.net/svt/ejp?a8mat=4B1XE4+FXXVXU+4ABU+6G4HD
 ─────────────────────
 
 {tags_str}"""

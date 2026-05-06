@@ -272,9 +272,9 @@ def generate_thumbnail(video_path: Path, title: str, topic: str, index: int = 0)
     from PIL import Image, ImageDraw, ImageFont
 
     thumb_path = video_path.with_suffix(".jpg")
-    # 動画の5秒目からフレーム抽出（HeyGenは最初の1秒が暗い場合がある）
+    # 終端-1.5秒のフレームを取得（話し終わり後 = 口が閉じた表情）
     subprocess.run([
-        "ffmpeg", "-y", "-ss", "3", "-i", str(video_path),
+        "ffmpeg", "-y", "-sseof", "-1.5", "-i", str(video_path),
         "-frames:v", "1", "-q:v", "2", str(thumb_path)
     ], check=True, capture_output=True)
 
@@ -640,7 +640,10 @@ def upload_youtube(video_path: Path, title: str, description: str, tags: list, s
     return vid
 
 
-def run_pipeline(topic: str, script_data: dict = None, audio_url: str = None, index: int = 0):
+def run_pipeline(topic: str, script_data: dict = None, audio_url: str = None, index: int = None):
+    if index is None:
+        from datetime import datetime
+        index = datetime.now().timetuple().tm_yday  # 通算日数でローテーション（1〜365）
     print(f"\n=== サクラパイプライン開始: {topic} (index={index}) ===")
 
     if not script_data:

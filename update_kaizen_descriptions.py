@@ -8,8 +8,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from sakura.pipeline import _get_kaizen_youtube_creds
 from googleapiclient.discovery import build
 
-OLD_URL = "https://www.amazon.com/s?k=yoga+mat"
-NEW_URL = "https://www.amazon.com/s?k=yoga+fitness+gear&tag=kaizensakura-20"
+OLD_URL = "https://www.amazon.com/s?k=yoga+fitness+gear&tag=kaizensakura-20"
+NEW_URL = "https://www.amazon.com/hz/wishlist/ls/202TJXB8FKB2B?tag=kaizensakura-20"
 
 
 def main():

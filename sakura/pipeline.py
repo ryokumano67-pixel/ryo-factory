@@ -75,7 +75,7 @@ BACKGROUND_COLORS = [
 SKIP_YOUTUBE_UPLOAD = os.getenv("SAKURA_SKIP_UPLOAD", "true").lower() != "false"
 
 RAKUTEN_ROOM_URL = "https://room.rakuten.co.jp/room_sakura-fitness-ai/items"
-AMAZON_US_URL = os.getenv("AMAZON_US_AFFILIATE_URL", "https://www.amazon.com/s?k=yoga+fitness+gear&tag=kaizensakura-20")
+AMAZON_US_URL = os.getenv("AMAZON_US_AFFILIATE_URL", "https://www.amazon.com/hz/wishlist/ls/202TJXB8FKB2B?tag=kaizensakura-20")
 YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@sakura_stretch"
 KAIZEN_CHANNEL_URL = "https://www.youtube.com/@KaizenwithSakura"
 TIKTOK_URL = "https://www.tiktok.com/@sakura_stretch"

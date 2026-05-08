@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import requests
@@ -20,11 +21,13 @@ BASE_DIR = SAKURA_DIR.parent
 sys.path.insert(0, str(BASE_DIR))
 load_dotenv(BASE_DIR / ".env", override=True)
 
-VOICE_ID           = "9HdWw3q0ezIc6HGblORv"  # Sakura日本語音声
+VOICE_ID           = "9HdWw3q0ezIc6HGblORv"  # Sakura日本語音声（ElevenLabs fallback用）
 KAIZEN_VOICE_ID    = os.getenv("KAIZEN_VOICE_ID", "EXAVITQu4vr4xnSDxMaL")  # Bella（英語）
 HEYGEN_AVATAR_ID   = "b7788b99bfc8490f8bffd2afcc4e1481"
 HEYGEN_API_KEY     = os.getenv("HEYGEN_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+VOICEVOX_URL       = os.getenv("VOICEVOX_URL", "").rstrip("/")
+VOICEVOX_SPEAKER   = int(os.getenv("VOICEVOX_SPEAKER", "8"))  # 8=春日部つむぎ
 
 # Sakuraのlook IDリスト（26パターン自動ローテーション）
 SAKURA_LOOK_IDS: list[str] = [
@@ -181,7 +184,44 @@ def generate_script(topic: str) -> dict:
         raise
 
 
+def _generate_audio_voicevox(text: str, output_path: Path) -> Path:
+    query_resp = requests.post(
+        f"{VOICEVOX_URL}/audio_query",
+        params={"text": text, "speaker": VOICEVOX_SPEAKER},
+        timeout=30,
+    )
+    if not query_resp.ok:
+        raise Exception(f"VOICEVOX audio_query error: {query_resp.status_code} {query_resp.text}")
+    query = query_resp.json()
+    query["speedScale"] = 1.05
+    query["intonationScale"] = 1.15
+    query["prePhonemeLength"] = 0.05
+    query["postPhonemeLength"] = 0.05
+
+    synth_resp = requests.post(
+        f"{VOICEVOX_URL}/synthesis",
+        params={"speaker": VOICEVOX_SPEAKER},
+        json=query,
+        timeout=120,
+    )
+    if not synth_resp.ok:
+        raise Exception(f"VOICEVOX synthesis error: {synth_resp.status_code} {synth_resp.text}")
+
+    wav_path = output_path.with_suffix(".wav")
+    wav_path.write_bytes(synth_resp.content)
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", str(wav_path), "-codec:a", "libmp3lame", "-q:a", "2", str(output_path)],
+        check=True, capture_output=True,
+    )
+    wav_path.unlink(missing_ok=True)
+    print(f"音声生成完了(VOICEVOX): {output_path}")
+    return output_path
+
+
 def generate_audio(text: str, output_path: Path, voice_id: str = VOICE_ID) -> Path:
+    if VOICEVOX_URL and voice_id == VOICE_ID:
+        return _generate_audio_voicevox(text, output_path)
+
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"}
     payload = {
@@ -199,7 +239,7 @@ def generate_audio(text: str, output_path: Path, voice_id: str = VOICE_ID) -> Pa
     if not resp.ok:
         raise Exception(f"ElevenLabs error: {resp.status_code} {resp.text}")
     output_path.write_bytes(resp.content)
-    print(f"音声生成完了: {output_path}")
+    print(f"音声生成完了(ElevenLabs): {output_path}")
     return output_path
 
 

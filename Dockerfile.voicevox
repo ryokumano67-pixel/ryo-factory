@@ -1,4 +1,4 @@
 FROM voicevox/voicevox_engine:cpu-ubuntu20.04-latest
 ENTRYPOINT []
 WORKDIR /opt/voicevox_engine
-CMD ["/bin/sh", "-c", "exec $(which python3.11 || which python3 || which python) run.py --host 0.0.0.0 --port ${PORT:-50021}"]
+CMD ["/bin/sh", "-c", "./run --host 0.0.0.0 --port ${PORT:-50021}"]

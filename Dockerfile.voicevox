@@ -1,3 +1,1 @@
 FROM voicevox/voicevox_engine:cpu-ubuntu20.04-latest
-ENTRYPOINT ["/bin/sh", "-c"]
-CMD ["echo '=== /opt ==='; ls /opt/ 2>/dev/null; echo '=== /opt/voicevox_engine ==='; ls -la /opt/voicevox_engine/ 2>/dev/null; echo '=== python ==='; find /usr /opt /home -name 'python*' -type f 2>/dev/null | head -10; echo '=== run files ==='; find / -maxdepth 6 -name 'run' -o -name 'run.py' 2>/dev/null | head -10; sleep 300"]

@@ -41,11 +41,8 @@ services:
         sync: false
       - key: YOUTUBE_CLIENT_SECRETS_B64
         sync: false
-      - key: VOICEVOX_URL
-        fromService:
-          name: voicevox-engine
-          type: web
-          property: host
+      - key: GOOGLE_TTS_API_KEY
+        sync: false
 
   # サクラ 毎日6時スケジューラー（前日20:00 JST = 11:00 UTC に実行）
   - type: cron
@@ -86,15 +83,5 @@ services:
         sync: false
       - key: YOUTUBE_TOKEN_JSON
         sync: false
-
-  # VOICEVOX エンジン（Sakura日本語TTS用）
-  - type: web
-    name: voicevox-engine
-    env: docker
-    plan: starter
-    dockerfilePath: Dockerfile.voicevox
-    envVars:
-      - key: PORT
-        value: "50021"
 
   # AI Japan Labo → Hana転換のため停止中

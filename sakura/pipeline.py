@@ -185,13 +185,25 @@ def generate_script(topic: str) -> dict:
 
 
 def _generate_audio_voicevox(text: str, output_path: Path) -> Path:
-    query_resp = requests.post(
-        f"{VOICEVOX_URL}/audio_query",
-        params={"text": text, "speaker": VOICEVOX_SPEAKER},
-        timeout=30,
-    )
+    # 起動直後の502対策：最大3回リトライ
+    for attempt in range(3):
+        try:
+            query_resp = requests.post(
+                f"{VOICEVOX_URL}/audio_query",
+                params={"text": text, "speaker": VOICEVOX_SPEAKER},
+                timeout=30,
+            )
+            if query_resp.ok:
+                break
+            print(f"VOICEVOX起動待機中... ({attempt+1}/3)")
+            time.sleep(20)
+        except Exception as e:
+            print(f"VOICEVOX接続エラー ({attempt+1}/3): {e}")
+            time.sleep(20)
+    else:
+        raise Exception(f"VOICEVOX audio_query error: {query_resp.status_code}")
     if not query_resp.ok:
-        raise Exception(f"VOICEVOX audio_query error: {query_resp.status_code} {query_resp.text}")
+        raise Exception(f"VOICEVOX audio_query error: {query_resp.status_code}")
     query = query_resp.json()
     query["speedScale"] = 1.05
     query["intonationScale"] = 1.15

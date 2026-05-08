@@ -94,7 +94,7 @@ services:
     plan: starter
     dockerfilePath: Dockerfile.voicevox
     envVars:
-      - key: PYTHONUNBUFFERED
-        value: "1"
+      - key: PORT
+        value: "50021"
 
   # AI Japan Labo → Hana転換のため停止中

@@ -43,6 +43,8 @@ services:
         sync: false
       - key: GOOGLE_TTS_API_KEY
         sync: false
+      - key: PYTHON_VERSION
+        value: "3.12.0"
 
   # サクラ 毎日6時スケジューラー（前日20:00 JST = 11:00 UTC に実行）
   - type: cron
@@ -63,6 +65,8 @@ services:
         sync: false
       - key: LINE_NOTIFY_USER_ID
         sync: false
+      - key: PYTHON_VERSION
+        value: "3.12.0"
 
   # 週次チャンネル分析（月曜9:00 UTC = 月曜18:00 JST）
   - type: cron
@@ -83,5 +87,7 @@ services:
         sync: false
       - key: YOUTUBE_TOKEN_JSON
         sync: false
+      - key: PYTHON_VERSION
+        value: "3.12.0"
 
   # AI Japan Labo → Hana転換のため停止中

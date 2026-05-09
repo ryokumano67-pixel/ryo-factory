@@ -479,7 +479,7 @@ def upload_kaizen_youtube(video_path: Path, topic: str, english_script: str, tag
     description = f"""{english_script[:200]}...
 
 Start your day with Kaizen — 1% better every day 🌸
-New videos every Mon, Wed & Fri. Subscribe and move with me!
+New videos every day. Subscribe and move with me!
 
 ─────────────────────
 🛒 My favorite fitness gear on Amazon:

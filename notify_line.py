@@ -501,7 +501,8 @@ def _sakura_start_pipeline(user_id, chosen_script, topic):
                 else:
                     push_message(user_id, "✅ Fitness動画生成完了！")
             else:
-                push_message(user_id, f"⚠️ Fitnessエラー:\n{result.stderr[-500:]}")
+                err_out = (result.stdout[-300:] + "\n---\n" + result.stderr[-1000:]).strip()
+                push_message(user_id, f"⚠️ Fitnessエラー:\n{err_out}")
         except Exception as e:
             push_message(user_id, f"⚠️ Fitnessパイプラインエラー: {e}")
 

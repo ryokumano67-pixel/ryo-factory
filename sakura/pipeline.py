@@ -364,37 +364,25 @@ def generate_thumbnail(video_path: Path, title: str, topic: str, index: int = 0)
 
 
 def _get_sakura_youtube_creds(scopes: list):
-    """YouTubeクレデンシャル取得。個別env var → JSONファイル → JSON env varの順で試みる。"""
+    """SAKURA_REFRESH_TOKEN env var + client_secrets.json でYouTubeクレデンシャルを取得。"""
+    import json as _json
     from google.oauth2.credentials import Credentials
     from google.auth.transport.requests import Request
 
-    # 最優先: 個別env var（JSONパース不要で最も安定）
     refresh_token = os.getenv("SAKURA_REFRESH_TOKEN", "").strip()
-    client_id = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "").strip()
-    client_secret = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
+    if not refresh_token:
+        raise RuntimeError("SAKURA_REFRESH_TOKEN が未設定です。Renderの環境変数を確認してください。")
 
-    if refresh_token and client_id and client_secret:
-        creds = Credentials(
-            token=None,
-            refresh_token=refresh_token,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=client_id,
-            client_secret=client_secret,
-            scopes=scopes,
-        )
-        creds.refresh(Request())
-        return creds
-
-    # フォールバック: JSONファイルまたはJSON env var
-    import json as _json, re as _re
-    TOKEN_FILE = SAKURA_DIR / "sakura_youtube_token.json"
-    token_json = TOKEN_FILE.read_text(encoding="utf-8") if TOKEN_FILE.exists() else os.getenv("SAKURA_YOUTUBE_TOKEN_JSON", "")
-    if not token_json:
-        raise RuntimeError("SAKURA_REFRESH_TOKEN (+ GOOGLE_OAUTH_CLIENT_ID/SECRET) または SAKURA_YOUTUBE_TOKEN_JSON を設定してください")
-    token_json = _re.sub(r'[\x00-\x1f\x7f]', '', token_json).strip()
-    creds = Credentials.from_authorized_user_info(_json.loads(token_json), scopes)
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+    secrets = _json.loads((BASE_DIR / "client_secrets.json").read_text())["installed"]
+    creds = Credentials(
+        token=None,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=secrets["client_id"],
+        client_secret=secrets["client_secret"],
+        scopes=scopes,
+    )
+    creds.refresh(Request())
     return creds
 
 

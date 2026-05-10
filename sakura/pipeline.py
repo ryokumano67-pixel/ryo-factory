@@ -363,26 +363,43 @@ def generate_thumbnail(video_path: Path, title: str, topic: str, index: int = 0)
     return thumb_path
 
 
+def _refresh_token_via_requests(refresh_token: str, client_id: str, client_secret: str) -> str:
+    """google-authライブラリを使わずrequestsで直接アクセストークンを取得する。"""
+    resp = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        },
+        timeout=30,
+    )
+    data = resp.json()
+    if "access_token" not in data:
+        raise RuntimeError(f"トークンリフレッシュ失敗: {data}")
+    return data["access_token"]
+
+
 def _get_sakura_youtube_creds(scopes: list):
     """SAKURA_REFRESH_TOKEN env var + client_secrets.json でYouTubeクレデンシャルを取得。"""
     import json as _json
     from google.oauth2.credentials import Credentials
-    from google.auth.transport.requests import Request
 
     refresh_token = os.getenv("SAKURA_REFRESH_TOKEN", "").strip()
     if not refresh_token:
         raise RuntimeError("SAKURA_REFRESH_TOKEN が未設定です。Renderの環境変数を確認してください。")
 
     secrets = _json.loads((BASE_DIR / "client_secrets.json").read_text())["installed"]
+    access_token = _refresh_token_via_requests(refresh_token, secrets["client_id"], secrets["client_secret"])
     creds = Credentials(
-        token=None,
+        token=access_token,
         refresh_token=refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
         client_id=secrets["client_id"],
         client_secret=secrets["client_secret"],
         scopes=scopes,
     )
-    creds.refresh(Request())
     return creds
 
 
@@ -626,16 +643,11 @@ def _next_6am_jst() -> str:
 def upload_youtube(video_path: Path, title: str, description: str, tags: list, scheduled: bool = False) -> str:
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
-    from google.auth.transport.requests import Request
-    import google_auth_httplib2, httplib2
 
     SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
               "https://www.googleapis.com/auth/youtube.force-ssl"]
     creds = _get_sakura_youtube_creds(SCOPES)
-    # httplib2経由のリフレッシュが失敗するため、requestsで事前リフレッシュしておく
-    creds.refresh(Request())
-    authorized_http = google_auth_httplib2.AuthorizedHttp(creds, http=httplib2.Http())
-    yt = build("youtube", "v3", http=authorized_http)
+    yt = build("youtube", "v3", credentials=creds)
     status = {"selfDeclaredMadeForKids": False}
     if scheduled:
         publish_at = _next_6am_jst()

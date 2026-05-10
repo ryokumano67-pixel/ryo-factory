@@ -12,61 +12,35 @@ services:
       name: youtube-factory-data
       mountPath: /data
       sizeGB: 1
+    envVarGroups:
+      - ryo-factory
     envVars:
       - key: DATA_DIR
         value: /data
       - key: PYTHONUNBUFFERED
         value: "1"
-      # 以下はRenderダッシュボードで手動設定
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: ELEVENLABS_API_KEY
-        sync: false
-      - key: HEYGEN_API_KEY
-        sync: false
-      - key: LINE_CHANNEL_ACCESS_TOKEN
-        sync: false
-      - key: LINE_CHANNEL_SECRET
-        sync: false
-      - key: LINE_NOTIFY_USER_ID
-        sync: false
-      - key: LINE_NOTIFY_USER_ID
-        sync: false
-      - key: PEXELS_API_KEY
-        sync: false
       - key: SAKURA_SKIP_UPLOAD
         value: "false"
-      # YouTubeトークン（base64でエンコードして貼る）
-      - key: YOUTUBE_TOKEN_B64
-        sync: false
-      - key: SAKURA_YOUTUBE_TOKEN_B64
-        sync: false
-      - key: YOUTUBE_CLIENT_SECRETS_B64
-        sync: false
-      - key: GOOGLE_TTS_API_KEY
-        sync: false
       - key: PYTHON_VERSION
         value: "3.12.0"
 
-  # サクラ 毎日6時スケジューラー（前日20:00 JST = 11:00 UTC に実行）
+  # サクラ 毎日20:00 JST（= 11:00 UTC）に台本生成
   - type: cron
-    name: sakura-daily-6am
+    name: sakura-daily-8pm
     env: python
     plan: starter
     schedule: "0 11 * * *"
     buildCommand: pip install -r requirements.txt
     startCommand: python startup.py && python sakura/scheduler.py --now
+    envVarGroups:
+      - ryo-factory
     envVars:
       - key: DATA_DIR
         value: /data
       - key: PYTHONUNBUFFERED
         value: "1"
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: LINE_CHANNEL_ACCESS_TOKEN
-        sync: false
-      - key: LINE_NOTIFY_USER_ID
-        sync: false
+      - key: SERVICE_URL
+        value: https://ryo-factory-1.onrender.com
       - key: PYTHON_VERSION
         value: "3.12.0"
 
@@ -78,17 +52,13 @@ services:
     schedule: "0 9 * * 1"
     buildCommand: pip install -r requirements.txt
     startCommand: python startup.py && python weekly_analysis.py
+    envVarGroups:
+      - ryo-factory
     envVars:
       - key: DATA_DIR
         value: /data
       - key: PYTHONUNBUFFERED
         value: "1"
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: SAKURA_YOUTUBE_TOKEN_JSON
-        sync: false
-      - key: YOUTUBE_TOKEN_JSON
-        sync: false
       - key: PYTHON_VERSION
         value: "3.12.0"
 

@@ -636,10 +636,16 @@ def _next_6am_jst() -> str:
 def upload_youtube(video_path: Path, title: str, description: str, tags: list, scheduled: bool = False) -> str:
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
+    from google.auth.transport.requests import Request
+    import google_auth_httplib2, httplib2
 
-    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
+              "https://www.googleapis.com/auth/youtube.force-ssl"]
     creds = _get_sakura_youtube_creds(SCOPES)
-    yt = build("youtube", "v3", credentials=creds)
+    # httplib2経由のリフレッシュが失敗するため、requestsで事前リフレッシュしておく
+    creds.refresh(Request())
+    authorized_http = google_auth_httplib2.AuthorizedHttp(creds, http=httplib2.Http())
+    yt = build("youtube", "v3", http=authorized_http)
     status = {"selfDeclaredMadeForKids": False}
     if scheduled:
         publish_at = _next_6am_jst()

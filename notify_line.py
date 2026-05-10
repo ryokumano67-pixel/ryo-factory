@@ -381,19 +381,37 @@ def _handle_confirm(user_id, reply_token, text, session):
 # ─── Sakura（朝ストレッチ）セッション処理 ─────────────────────────────────
 
 SAKURA_DIR = BASE_DIR / "sakura"
-SAKURA_SESSIONS_FILE = DATA_DIR / "sakura_sessions.json"
+# Use BASE_DIR (always writable in container) instead of DATA_DIR which may not exist
+SAKURA_SESSIONS_FILE = BASE_DIR / "sakura_sessions.json"
+SAKURA_LATEST_SCRIPTS_FILE = BASE_DIR / "sakura_latest_scripts.json"
+
+# In-memory cache: survives request-to-request within the same process
+_sakura_sessions_cache: dict = {}
 
 
-def load_sakura_sessions():
+def load_sakura_sessions() -> dict:
+    if _sakura_sessions_cache:
+        return dict(_sakura_sessions_cache)
+    # Fall back to file (populated on previous run before restart)
     if SAKURA_SESSIONS_FILE.exists():
-        with open(SAKURA_SESSIONS_FILE, encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(SAKURA_SESSIONS_FILE, encoding="utf-8") as f:
+                data = json.load(f)
+            _sakura_sessions_cache.update(data)
+            return dict(_sakura_sessions_cache)
+        except Exception as e:
+            log.warning(f"セッションファイル読み込み失敗: {e}")
     return {}
 
 
-def save_sakura_sessions(sessions):
-    with open(SAKURA_SESSIONS_FILE, "w", encoding="utf-8") as f:
-        json.dump(sessions, f, ensure_ascii=False, indent=2)
+def save_sakura_sessions(sessions: dict) -> None:
+    _sakura_sessions_cache.clear()
+    _sakura_sessions_cache.update(sessions)
+    try:
+        with open(SAKURA_SESSIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(sessions, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        log.warning(f"セッションファイル保存失敗（メモリには保存済み）: {e}")
 
 
 _SAKURA_NUM_MAP = [
@@ -638,11 +656,45 @@ def _sakura_handle_confirm(user_id, reply_token, text, session):
         log.info(f"[Sakura] 読み上げ文章修正: topic={topic}, learned={new_pairs}")
 
 
+def _sakura_restore_session_from_backup(user_id) -> bool:
+    """再起動後などにセッションが失われた場合、最新台本バックアップからセッションを復元する。"""
+    if not SAKURA_LATEST_SCRIPTS_FILE.exists():
+        return False
+    try:
+        with open(SAKURA_LATEST_SCRIPTS_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        if data.get("user_id") != user_id:
+            return False
+        sessions = load_sakura_sessions()
+        sessions[user_id] = {"scripts": data["scripts"], "script_path": data.get("script_path", "")}
+        save_sakura_sessions(sessions)
+        log.info(f"[Sakura] バックアップからセッション復元: {user_id}")
+        return True
+    except Exception as e:
+        log.warning(f"セッション復元失敗: {e}")
+        return False
+
+
 def handle_sakura_approval(user_id, reply_token, text):
     """Sakuraセッションがあれば処理してTrueを返す。なければFalse。"""
     sessions = load_sakura_sessions()
     session = sessions.get(user_id)
     if not session:
+        # 「再送」コマンド: バックアップから台本を再送信
+        if text.strip() in ("再送", "resend", "再通知"):
+            if _sakura_restore_session_from_backup(user_id):
+                sessions2 = load_sakura_sessions()
+                session2 = sessions2.get(user_id)
+                if session2:
+                    sys.path.insert(0, str(BASE_DIR))
+                    from sakura.notify_line import build_notification_text
+                    notification = build_notification_text(session2["scripts"])
+                    for chunk in [notification[i:i + 4900] for i in range(0, len(notification), 4900)]:
+                        push_message(user_id, chunk)
+                    reply_message(reply_token, "📨 前回の台本を再送しました。OK/1/2/3 で承認してください。")
+                    return True
+            reply_message(reply_token, "⚠️ 再送できる台本がありません。スケジューラーを再実行してください。")
+            return True
         return False
     state = session.get("state", "pending")
     if state == "confirm":
@@ -661,7 +713,7 @@ def handle_approval(user_id, reply_token, text):
     sessions = load_sessions()
     session = sessions.get(user_id)
     if not session:
-        reply_message(reply_token, "承認待ちの台本がありません。先にスケジューラーを実行してください。")
+        reply_message(reply_token, "承認待ちの台本がありません。先にスケジューラーを実行するか「再送」と送ってください。")
         return
     state = session.get("state", "pending")
     if state == "confirm":
@@ -749,6 +801,12 @@ def sakura_notify(user_id):
         sessions = load_sakura_sessions()
         sessions[user_id] = {"scripts": scripts, "script_path": script_path}
         save_sakura_sessions(sessions)
+        # Persist latest scripts as fallback for recovery after restart
+        try:
+            with open(SAKURA_LATEST_SCRIPTS_FILE, "w", encoding="utf-8") as f:
+                json.dump({"user_id": user_id, "scripts": scripts, "script_path": script_path}, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            log.warning(f"最新台本バックアップ保存失敗: {e}")
         log.info(f"[Sakura] 台本通知送信 → {user_id}")
         return {"status": "sent"}, 200
     except FileNotFoundError as e:

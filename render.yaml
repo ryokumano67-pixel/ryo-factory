@@ -1,7 +1,7 @@
 services:
   # LINE Webhook サーバー（常時起動）
   - type: web
-    name: youtube-factory-line
+    name: ryo-factory-1
     env: python
     plan: starter
     buildCommand: |
@@ -27,6 +27,8 @@ services:
       - key: LINE_CHANNEL_ACCESS_TOKEN
         sync: false
       - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_NOTIFY_USER_ID
         sync: false
       - key: LINE_NOTIFY_USER_ID
         sync: false

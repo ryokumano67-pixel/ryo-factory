@@ -386,7 +386,10 @@ def _get_sakura_youtube_creds(scopes: list):
     import json as _json
     from google.oauth2.credentials import Credentials
 
-    refresh_token = os.getenv("SAKURA_REFRESH_TOKEN", "").strip()
+    raw = os.getenv("SAKURA_REFRESH_TOKEN", "")
+    # 不可視unicode・引用符・制御文字等を除去（paste時の混入対策）
+    refresh_token = re.sub(r'[^A-Za-z0-9/+\-_=]', '', raw)
+    print(f"[creds] SAKURA_REFRESH_TOKEN len={len(refresh_token)} prefix={refresh_token[:8]!r}")
     if not refresh_token:
         raise RuntimeError("SAKURA_REFRESH_TOKEN が未設定です。Renderの環境変数を確認してください。")
 

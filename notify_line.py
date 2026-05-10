@@ -426,6 +426,34 @@ _SAKURA_NUM_MAP = [
 _SAKURA_CORRECTIONS_FILE = SAKURA_DIR / "tts_corrections.json"
 
 
+def _sakura_commit_corrections_to_github(content: str):
+    """tts_corrections.jsonをGitHub APIで直接コミット（デプロイをまたいで永続化）"""
+    token = os.getenv("GITHUB_TOKEN", "")
+    repo = os.getenv("GITHUB_REPO", "ryokumano67-pixel/ryo-factory")
+    if not token:
+        log.warning("[Sakura] GITHUB_TOKEN未設定のためTTS修正はデプロイ後にリセットされます")
+        return
+    import base64 as _b64
+    path = "sakura/tts_corrections.json"
+    api = f"https://api.github.com/repos/{repo}/contents/{path}"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    # 現在のSHAを取得
+    r = requests.get(api, headers=headers, timeout=10)
+    sha = r.json().get("sha", "") if r.ok else ""
+    body = {
+        "message": "Auto-update TTS corrections via LINE",
+        "content": _b64.b64encode(content.encode()).decode(),
+        "branch": "main",
+    }
+    if sha:
+        body["sha"] = sha
+    resp = requests.put(api, headers=headers, json=body, timeout=10)
+    if resp.ok:
+        log.info("[Sakura] TTS修正をGitHubにコミットしました")
+    else:
+        log.warning(f"[Sakura] GitHubコミット失敗: {resp.status_code} {resp.text[:100]}")
+
+
 def _sakura_load_corrections() -> list:
     if _SAKURA_CORRECTIONS_FILE.exists():
         with open(_SAKURA_CORRECTIONS_FILE, encoding="utf-8") as f:
@@ -434,16 +462,19 @@ def _sakura_load_corrections() -> list:
 
 
 def _sakura_save_corrections(new_pairs: list):
-    """新しい修正ペアを既存ファイルにマージして保存（同一originalは上書き）"""
+    """新しい修正ペアを既存ファイルにマージして保存（同一originalは上書き）。GitHubにも自動コミット。"""
     existing = {c["original"]: c["corrected"] for c in _sakura_load_corrections()}
     for c in new_pairs:
         existing[c["original"]] = c["corrected"]
+    content = json.dumps(
+        {"corrections": [{"original": k, "corrected": v} for k, v in existing.items()]},
+        ensure_ascii=False, indent=2,
+    )
     with open(_SAKURA_CORRECTIONS_FILE, "w", encoding="utf-8") as f:
-        json.dump(
-            {"corrections": [{"original": k, "corrected": v} for k, v in existing.items()]},
-            f, ensure_ascii=False, indent=2,
-        )
+        f.write(content)
     log.info(f"[Sakura] TTS修正を保存: {new_pairs}")
+    # GitHub APIで自動コミット（デプロイをまたいでも修正が残るように）
+    _sakura_commit_corrections_to_github(content)
 
 
 def _sakura_extract_corrections(original: str, corrected: str) -> list:

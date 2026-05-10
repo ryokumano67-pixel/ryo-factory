@@ -81,6 +81,9 @@ def push_message(to, text):
 
 
 def verify_signature(body, signature):
+    if not LINE_CHANNEL_SECRET:
+        log.warning("LINE_CHANNEL_SECRET が未設定。署名検証をスキップします")
+        return True
     secret = LINE_CHANNEL_SECRET.encode("utf-8")
     digest = hmac.new(secret, body, digestmod=hashlib.sha256).digest()
     expected = b64encode(digest).decode("utf-8")
@@ -757,21 +760,42 @@ def run_pipeline_endpoint():
     keyword = data.get("keyword")
     subprocess.Popen([sys.executable, "/Users/user/youtube-factory/pipeline.py", script_path or "", user_id or "", keyword or ""])
     return {"status": "started"}, 200
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return {
+        "status": "ok",
+        "line_access_token": bool(LINE_CHANNEL_ACCESS_TOKEN),
+        "line_channel_secret": bool(LINE_CHANNEL_SECRET),
+        "sakura_sessions": len(_sakura_sessions_cache),
+    }, 200
+
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
+    log.info(f"[webhook] リクエスト受信 method={request.method} path={request.path}")
     signature = request.headers.get("X-Line-Signature", "")
     body = request.get_data()
     if not verify_signature(body, signature):
+        log.warning(f"[webhook] 署名検証失敗 sig={signature[:20]}")
         abort(400)
-    data = json.loads(body)
+    try:
+        data = json.loads(body)
+    except Exception as e:
+        log.error(f"[webhook] JSON解析失敗: {e} body={body[:200]}")
+        return "OK", 200
+    log.info(f"[webhook] events={len(data.get('events', []))}")
     for event in data.get("events", []):
         if event.get("type") != "message":
+            log.info(f"[webhook] 非メッセージイベント: {event.get('type')}")
             continue
         if event["message"].get("type") != "text":
             continue
         user_id = event["source"]["userId"]
         reply_token = event["replyToken"]
         text = event["message"]["text"]
+        log.info(f"[webhook] メッセージ受信: user={user_id} text={text!r}")
         handle_approval(user_id, reply_token, text)
     return "OK", 200
 

@@ -596,23 +596,26 @@ def _sakura_handle_pending(user_id, reply_token, text, session):
     text_stripped = text.strip()
     text_lower = text_stripped.lower()
 
-    if text_lower == "ok" or text_lower in ("1", "2", "3"):
-        index = 0 if text_lower == "ok" else int(text_lower) - 1
+    if text_lower in ("1", "2", "3"):
+        index = int(text_lower) - 1
         index = min(index, len(scripts) - 1)
         chosen_script = scripts[index]
         topic = chosen_script.get("topic", chosen_script.get("keyword", "ストレッチ"))
         tts = _sakura_tts_preview(chosen_script["script"])
         chosen_script["audio_text"] = tts
 
-        sessions.pop(user_id, None)
+        # 読み上げ確認ステップへ遷移（まだ動画生成しない）
+        sessions[user_id] = {
+            "state": "confirm",
+            "selected_script": chosen_script,
+            "topic": topic,
+        }
         save_sakura_sessions(sessions)
 
         reply_message(
             reply_token,
-            f"✅ 「{topic}」で動画生成を開始します！\n\n🔊 読み上げ:\n{tts}\n\n─────\n読み方が違ったら次の動画のためにLINEで教えてね📝",
+            f"🔊 「{topic}」の読み上げ確認:\n\n{tts}\n\n─────────────────\nOK → 動画生成開始\nNG → 台本を再生成\n読み方を直す → 正しい読み上げ文章を全文送信",
         )
-        log.info(f"[Sakura] 動画生成開始: topic={topic}")
-        _sakura_start_pipeline(user_id, chosen_script, topic)
 
     elif text_lower.startswith("ng"):
         instruction = text_stripped[2:].lstrip(":： ").strip()

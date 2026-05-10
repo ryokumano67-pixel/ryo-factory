@@ -383,6 +383,10 @@ def _get_sakura_youtube_creds(scopes: list):
             "ローカルで OAuth を実行し SAKURA_YOUTUBE_TOKEN_JSON に設定してください。"
         )
 
+    # Renderの環境変数貼り付け時に混入する改行・制御文字を除去
+    import re as _re
+    token_json = _re.sub(r'[\x00-\x1f\x7f]', '', token_json).strip()
+
     creds = Credentials.from_authorized_user_info(_json.loads(token_json), scopes)
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
@@ -402,6 +406,8 @@ def _get_kaizen_youtube_creds(scopes: list):
     token_json = TOKEN_FILE.read_text(encoding="utf-8") if TOKEN_FILE.exists() else os.getenv("KAIZEN_YOUTUBE_TOKEN_JSON", "")
     if not token_json:
         raise RuntimeError("KAIZEN_YOUTUBE_TOKEN_JSON が未設定です")
+    import re as _re
+    token_json = _re.sub(r'[\x00-\x1f\x7f]', '', token_json).strip()
     creds = Credentials.from_authorized_user_info(_json.loads(token_json), scopes)
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())

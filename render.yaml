@@ -1,22 +1,14 @@
 services:
   # LINE Webhook サーバー（常時起動）
   - type: web
-    name: ryo-factory-1
+    name: ryo-factory
     env: python
     plan: starter
     buildCommand: |
       pip install -r requirements.txt &&
       apt-get install -y ffmpeg 2>/dev/null || true
     startCommand: python startup.py && gunicorn notify_line:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1
-    disk:
-      name: youtube-factory-data
-      mountPath: /data
-      sizeGB: 1
-    envVarGroups:
-      - ryo-factory
     envVars:
-      - key: DATA_DIR
-        value: /data
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: SAKURA_SKIP_UPLOAD
@@ -40,7 +32,7 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: SERVICE_URL
-        value: https://ryo-factory-1.onrender.com
+        value: https://ryo-factory.onrender.com
       - key: PYTHON_VERSION
         value: "3.12.0"
 

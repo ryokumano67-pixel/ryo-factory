@@ -58,7 +58,7 @@ def send_line_notification() -> bool:
     if not LINE_NOTIFY_USER_ID:
         log.warning("LINE_NOTIFY_USER_ID が未設定のため通知をスキップします")
         return False
-    service_url = os.getenv("SERVICE_URL", "https://ryo-factory-1.onrender.com")
+    service_url = os.getenv("SERVICE_URL", "https://ryo-factory.onrender.com")
     url = f"{service_url}/sakura/notify/{LINE_NOTIFY_USER_ID}"
     try:
         import json as json_mod

@@ -544,10 +544,13 @@ def _sakura_start_pipeline(user_id, chosen_script, topic):
                 scheduled_urls = re_mod.findall(r"YouTube予約完了.*?(https://youtube\.com/shorts/\S+)", result.stdout)
                 yt_urls = re_mod.findall(r"YouTube投稿完了.*?(https://youtube\.com/shorts/\S+)", result.stdout)
                 vid_paths = re_mod.findall(r"動画生成完了（YouTube投稿スキップ中）: (\S+)", result.stdout)
+                comment_ok = "コメント投稿完了" in result.stdout
+                comment_fail = re_mod.search(r"コメント投稿エラー.+?[:：](.+)", result.stdout)
+                comment_status = "💬 コメント済み" if comment_ok else (f"⚠️ コメント未投稿: {comment_fail.group(1)[:80]}" if comment_fail else "💬 コメント未確認")
                 if scheduled_urls:
-                    push_message(user_id, f"✅ Fitness予約完了！明朝6時JST公開🌸\n{scheduled_urls[-1]}")
+                    push_message(user_id, f"✅ Fitness予約完了！明朝6時JST公開🌸\n{scheduled_urls[-1]}\n{comment_status}")
                 elif yt_urls:
-                    push_message(user_id, f"✅ Fitness投稿完了！\n{yt_urls[-1]}")
+                    push_message(user_id, f"✅ Fitness投稿完了！\n{yt_urls[-1]}\n{comment_status}")
                 elif vid_paths:
                     push_message(user_id, f"✅ Fitness動画生成完了！（スキップ中）\n{vid_paths[-1]}")
                 else:

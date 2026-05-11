@@ -61,18 +61,32 @@ SAKURA_LOOK_IDS: list[str] = [
 
 KAIZEN_AVATAR_ID = "03c8db932875431c998c292c2240b411"  # Sakura Kaizen英語チャンネル用
 
-# 背景カラーローテーション（ピンクメイン＋アクセント）
+# Sakura Fitness 背景カラーローテーション（ピンク系＋アクセント）
 BACKGROUND_COLORS = [
     "#FFB6C1",  # ライトピンク
-    "#FFC0CB",  # ピンク
-    "#FFD1DC",  # ペールピンク
+    "#87CEEB",  # スカイブルー
+    "#98FB98",  # ペールグリーン
     "#FFFFFF",  # 白（清潔感）
-    "#FFB6C1",  # ライトピンク
-    "#FFF0F5",  # ラベンダーブラッシュ
+    "#FFD700",  # ゴールド（エネルギー）
+    "#E6E6FA",  # ラベンダー
+    "#FFA07A",  # ライトサーモン
+    "#B0E0E6",  # パウダーブルー
     "#FFD1DC",  # ペールピンク
-    "#FFF5EE",  # シーシェル（ピーチ）
-    "#FFB6C1",  # ライトピンク
-    "#F8F0FF",  # ラベンダー
+    "#DDA0DD",  # プラム
+]
+
+# Kaizen with Sakura 背景カラーローテーション（クール系・英語圏向け）
+KAIZEN_BACKGROUND_COLORS = [
+    "#87CEEB",  # Sky Blue
+    "#FFFFFF",  # White
+    "#98FB98",  # Pale Green
+    "#40E0D0",  # Turquoise
+    "#FFD700",  # Gold
+    "#F0E68C",  # Khaki
+    "#FF7F50",  # Coral
+    "#DDA0DD",  # Plum
+    "#87CEFA",  # Light Sky Blue
+    "#90EE90",  # Light Green
 ]
 
 SKIP_YOUTUBE_UPLOAD = os.getenv("SAKURA_SKIP_UPLOAD", "true").lower() != "false"
@@ -233,9 +247,9 @@ def _pick_avatar_id(index: int) -> str:
     return HEYGEN_AVATAR_ID
 
 
-def _pick_background(index: int) -> dict:
-    color = BACKGROUND_COLORS[index % len(BACKGROUND_COLORS)]
-    return {"type": "color", "value": color}
+def _pick_background(index: int, kaizen: bool = False) -> dict:
+    colors = KAIZEN_BACKGROUND_COLORS if kaizen else BACKGROUND_COLORS
+    return {"type": "color", "value": colors[index % len(colors)]}
 
 
 def generate_heygen_video(audio_url: str, index: int = 0) -> str:
@@ -537,7 +551,7 @@ def run_kaizen_pipeline(topic: str, japanese_script: str, tags: list = None, ind
         generate_audio(english_script, audio_path, voice_id=KAIZEN_VOICE_ID)
         audio_url = upload_audio(audio_path)
 
-        background = _pick_background(index + 1)
+        background = _pick_background(index, kaizen=True)
         payload = {
             "video_inputs": [{
                 "character": {"type": "avatar", "avatar_id": KAIZEN_AVATAR_ID, "avatar_style": "normal"},
@@ -562,6 +576,11 @@ def run_kaizen_pipeline(topic: str, japanese_script: str, tags: list = None, ind
 
         if not SKIP_YOUTUBE_UPLOAD:
             yt_id = upload_kaizen_youtube(video_path, topic, english_script, tags or [], english_topic=english_topic)
+            try:
+                thumb_path = generate_kaizen_thumbnail(video_path, english_topic or topic, index)
+                upload_kaizen_thumbnail(yt_id, thumb_path)
+            except Exception as te:
+                print(f"[Kaizen] サムネイルエラー（投稿は完了）: {te}")
             try:
                 comment_text = (
                     f"🛒 My favorite fitness gear on Amazon!\n"
@@ -593,6 +612,89 @@ def upload_thumbnail(video_id: str, thumb_path: Path):
     media = MediaFileUpload(str(thumb_path), mimetype="image/jpeg")
     yt.thumbnails().set(videoId=video_id, media_body=media).execute()
     print(f"サムネイルアップロード完了: {video_id}")
+
+
+def generate_kaizen_thumbnail(video_path: Path, english_topic: str, index: int = 0) -> Path:
+    """Kaizen動画からフレームを抽出し英語テキストを重ねたサムネイルを生成"""
+    import subprocess
+    from PIL import Image, ImageDraw, ImageFont
+
+    thumb_path = video_path.with_suffix(".jpg")
+    subprocess.run([
+        "ffmpeg", "-y", "-sseof", "-1.5", "-i", str(video_path),
+        "-frames:v", "1", "-q:v", "2", str(thumb_path)
+    ], check=True, capture_output=True)
+
+    img = Image.open(thumb_path).convert("RGB")
+    w, h = img.size
+
+    # 上部グラデーション帯
+    overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ov_draw = ImageDraw.Draw(overlay)
+    for y in range(220):
+        alpha = int(190 * (1 - y / 220))
+        ov_draw.line([(0, y), (w, y)], fill=(0, 0, 0, alpha))
+    img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+    draw = ImageDraw.Draw(img)
+
+    font_paths = [
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/Library/Fonts/Arial Bold.ttf",
+        "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+    ]
+    title_font = None
+    small_font = None
+    for fp in font_paths:
+        try:
+            title_font = ImageFont.truetype(fp, 56)
+            small_font = ImageFont.truetype(fp, 34)
+            break
+        except Exception:
+            pass
+    if title_font is None:
+        title_font = ImageFont.load_default()
+        small_font = ImageFont.load_default()
+
+    # "60 SEC" バッジ（左上）
+    draw.rectangle([(20, 20), (160, 70)], fill=(255, 80, 80))
+    draw.text((28, 26), "60 SEC", font=small_font, fill=(255, 255, 255))
+
+    # トピック名テキスト（上部）
+    clean = english_topic.strip()
+    if len(clean) > 18:
+        mid = len(clean) // 2
+        for i in range(mid, min(mid + 8, len(clean))):
+            if clean[i] == " ":
+                clean = clean[:i] + "\n" + clean[i+1:]
+                break
+        else:
+            clean = clean[:mid] + "\n" + clean[mid:]
+
+    for dx, dy in [(2, 2), (-2, 2), (2, -2)]:
+        draw.text((24 + dx, 82 + dy), clean, font=title_font, fill=(0, 0, 0, 200))
+    draw.text((24, 82), clean, font=title_font, fill=(255, 255, 255))
+
+    # 下部 Kaizen ブランドバー（水色）
+    bar_y = h - 80
+    draw.rectangle([(0, bar_y), (w, h)], fill=(64, 164, 223, 220))
+    draw.text((20, bar_y + 18), "Kaizen with Sakura", font=small_font, fill=(255, 255, 255))
+
+    img.save(thumb_path, "JPEG", quality=90)
+    print(f"Kaizenサムネイル生成完了: {thumb_path}")
+    return thumb_path
+
+
+def upload_kaizen_thumbnail(video_id: str, thumb_path: Path):
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
+              "https://www.googleapis.com/auth/youtube.force-ssl"]
+    creds = _get_kaizen_youtube_creds(SCOPES)
+    yt = build("youtube", "v3", credentials=creds)
+    media = MediaFileUpload(str(thumb_path), mimetype="image/jpeg")
+    yt.thumbnails().set(videoId=video_id, media_body=media).execute()
+    print(f"Kaizenサムネイルアップロード完了: {video_id}")
 
 
 def add_pinned_comment(video_id: str, text: str):

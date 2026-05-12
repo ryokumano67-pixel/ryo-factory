@@ -771,6 +771,12 @@ def handle_approval(user_id, reply_token, text):
     # Sakuraセッションを優先チェック（8080の単一webhookで両チャンネルを捌く）
     if handle_sakura_approval(user_id, reply_token, text):
         return
+    # Sakuraセッションが消えていてもバックアップから自動復元を試みる
+    # （コンテナ再起動でセッションが失われた場合のフォールバック）
+    if text.strip().lower() in ("ok", "1", "2", "3", "ng") or text.strip() in ("確定", "開始", "start"):
+        if _sakura_restore_session_from_backup(user_id):
+            if handle_sakura_approval(user_id, reply_token, text):
+                return
     sessions = load_sessions()
     session = sessions.get(user_id)
     if not session:
@@ -883,6 +889,12 @@ def sakura_notify(user_id):
         sessions = load_sakura_sessions()
         sessions[user_id] = {"scripts": scripts, "script_path": script_path}
         save_sakura_sessions(sessions)
+        # 古いHanaセッションをクリア（Sakura通知が来たらHanaセッションは不要）
+        old_sessions = load_sessions()
+        if user_id in old_sessions:
+            old_sessions.pop(user_id)
+            save_sessions(old_sessions)
+            log.info(f"[Sakura] 古いHanaセッションをクリア: {user_id}")
         # Persist latest scripts as fallback for recovery after restart
         try:
             with open(SAKURA_LATEST_SCRIPTS_FILE, "w", encoding="utf-8") as f:

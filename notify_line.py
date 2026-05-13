@@ -845,26 +845,9 @@ def webhook():
 
 @app.route("/notify/<user_id>", methods=["POST"])
 def notify(user_id):
-    try:
-        body = request.get_json(silent=True) or {}
-        if body.get("scripts"):
-            # Cron Jobコンテナからスクリプトデータを受け取った場合
-            scripts = body["scripts"]
-            script_path = body.get("script_path", "")
-            text = build_notification_text(scripts)
-            for chunk in [text[i:i + 4900] for i in range(0, len(text), 4900)]:
-                push_message(user_id, chunk)
-            sessions = load_sessions()
-            sessions[user_id] = {"scripts": scripts, "script_path": script_path}
-            save_sessions(sessions)
-            log.info(f"台本通知を送信しました（POSTデータ使用） → {user_id}")
-        else:
-            send_notification(user_id)
-        return {"status": "sent"}, 200
-    except FileNotFoundError as e:
-        return {"error": str(e)}, 404
-    except Exception as e:
-        return {"error": str(e)}, 500
+    # AI Japan Labo / Hana パイプライン停止済み → このエンドポイントは無効
+    log.info(f"[無効] /notify/ が呼ばれましたが停止中のため無視します: {user_id}")
+    return {"status": "disabled"}, 200
 
 
 @app.route("/sakura/notify/<user_id>", methods=["POST"])

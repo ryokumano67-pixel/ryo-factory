@@ -564,7 +564,7 @@ def _sakura_start_pipeline(user_id, chosen_script, topic):
     def run_kaizen():
         try:
             sys.path.insert(0, str(BASE_DIR))
-            from sakura.pipeline import run_kaizen_pipeline
+            from sakura.pipeline import run_kaizen_pipeline, add_kaizen_pinned_comment, AMAZON_US_URL
             tags = chosen_script.get("tags", [])
             yt_id = run_kaizen_pipeline(
                 topic=topic,
@@ -572,9 +572,22 @@ def _sakura_start_pipeline(user_id, chosen_script, topic):
                 tags=tags,
             )
             if yt_id:
-                push_message(user_id, f"✅ Kaizen英語版予約完了！朝6時PST公開🌿\nhttps://youtube.com/shorts/{yt_id}")
+                # コメント投稿（ここでLINE通知も制御）
+                comment_text = (
+                    f"🛒 My favorite fitness gear on Amazon!\n"
+                    f"▶ Yoga Mat / Foam Roller / Resistance Bands / Stretch Strap\n"
+                    f"→ {AMAZON_US_URL}\n\n"
+                    f"✅ Gear I personally recommend.\n"
+                    f"(As an Amazon Associate I earn from qualifying purchases 🙏)"
+                )
+                try:
+                    add_kaizen_pinned_comment(yt_id, comment_text)
+                    comment_status = "💬 コメント済み"
+                except Exception as ce:
+                    comment_status = f"⚠️ コメント未投稿: {str(ce)[:80]}"
+                push_message(user_id, f"✅ Kaizen予約完了！朝6時PST公開🌿\nhttps://youtube.com/shorts/{yt_id}\n{comment_status}")
             else:
-                push_message(user_id, "✅ Kaizen英語版動画生成完了！（スキップ中）")
+                push_message(user_id, "✅ Kaizen動画生成完了！（スキップ中）")
         except Exception as e:
             push_message(user_id, f"⚠️ Kaizenエラー: {e}")
 

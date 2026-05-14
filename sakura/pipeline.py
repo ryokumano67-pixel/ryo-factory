@@ -462,6 +462,16 @@ def _next_6am_pst() -> str:
     return publish_at.strftime("%Y-%m-%dT06:00:00-08:00")
 
 
+KAIZEN_CTA = "Check the description for my favorite fitness gear links!"
+
+
+def _ensure_kaizen_cta(script: str) -> str:
+    """英語スクリプト末尾にCTAがなければ強制追加"""
+    if "description" in script.lower() and ("check" in script.lower() or "link" in script.lower()):
+        return script
+    return script.rstrip("! \n") + " " + KAIZEN_CTA
+
+
 def translate_to_english(japanese_script: str, topic: str) -> tuple[str, str]:
     """日本語台本とトピックを英語に翻訳。(english_script, english_topic) を返す"""
     import anthropic
@@ -470,6 +480,7 @@ def translate_to_english(japanese_script: str, topic: str) -> tuple[str, str]:
 
 1. Translate the topic name to natural English (2-5 words, e.g. "Calf Stretch", "Morning Hip Opener")
 2. Translate the script to natural, energetic English under 60 seconds when spoken.
+3. The script MUST end with: "Check the description for my favorite fitness gear links!"
 
 Output format (exactly):
 TOPIC: <English topic>
@@ -502,6 +513,7 @@ Japanese Script:
         )
         english_topic = fallback.content[0].text.strip()
 
+    english_script = _ensure_kaizen_cta(english_script)
     return english_script, english_topic
 
 
@@ -526,14 +538,18 @@ Start your day with Kaizen — 1% better every day 🌸
 New videos every day. Subscribe and move with me!
 
 ─────────────────────
-🛒 My favorite fitness gear on Amazon:
-▶ Yoga Mat / Foam Roller / Resistance Bands
+🛒 My Amazon fitness picks (affiliate links):
+▶ Yoga Mat / Foam Roller / Resistance Bands / Stretch Strap
 → {AMAZON_US_URL}
 
+✅ These are gear I personally recommend.
 (As an Amazon Associate I earn from qualifying purchases 🙏)
 ─────────────────────
 
-#MorningStretch #Kaizen #SakuraKaizen #FitnessRoutine #Stretch"""
+💬 Leave a comment: which stretch felt the best?
+🔔 Subscribe + hit the bell so you never miss a daily stretch!
+
+#MorningStretch #Kaizen #SakuraKaizen #FitnessRoutine #Stretch #StretchRoutine #FlexibilityTraining"""
 
     body = {
         "snippet": {"title": title, "description": description, "tags": tags, "categoryId": "22"},
@@ -594,16 +610,8 @@ def run_kaizen_pipeline(topic: str, japanese_script: str, tags: list = None, ind
                 upload_kaizen_thumbnail(yt_id, thumb_path)
             except Exception as te:
                 print(f"[Kaizen] サムネイルエラー（投稿は完了）: {te}")
-            try:
-                comment_text = (
-                    f"🛒 My favorite fitness gear on Amazon!\n"
-                    f"▶ Yoga Mat / Foam Roller / Resistance Bands\n"
-                    f"→ {AMAZON_US_URL}\n\n"
-                    f"(As an Amazon Associate I earn from qualifying purchases 🙏)"
-                )
-                add_kaizen_pinned_comment(yt_id, comment_text)
-            except Exception as ce:
-                print(f"[Kaizen] コメント投稿失敗（トークン再認証が必要かも）: {ce}")
+            # コメントはnotify_line.py側で投稿してLINE通知（エラー可視化のため）
+            print(f"KAIZEN_COMMENT_TEXT:{AMAZON_US_URL}")
             print(f"=== Kaizen完了: https://youtube.com/shorts/{yt_id} ===")
             return yt_id
         else:

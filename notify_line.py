@@ -578,7 +578,7 @@ def _sakura_start_pipeline(user_id, chosen_script, topic):
                     f"▶ Yoga Mat / Foam Roller / Resistance Bands / Stretch Strap\n"
                     f"→ {AMAZON_US_URL}\n\n"
                     f"✅ Gear I personally recommend.\n"
-                    f"(As an Amazon Associate I earn from qualifying purchases 🙏)"
+                    f"✅ Gear I personally recommend."
                 )
                 try:
                     add_kaizen_pinned_comment(yt_id, comment_text)
@@ -790,6 +790,10 @@ def handle_approval(user_id, reply_token, text):
         if _sakura_restore_session_from_backup(user_id):
             if handle_sakura_approval(user_id, reply_token, text):
                 return
+        # バックアップも消えていたら自動再生成（コンテナ再起動後の完全消失対策）
+        log.info(f"[Sakura] セッション・バックアップ両方消失。自動再生成: {user_id}")
+        _sakura_trigger_generate(user_id, reply_token)
+        return
     sessions = load_sessions()
     session = sessions.get(user_id)
     if not session:

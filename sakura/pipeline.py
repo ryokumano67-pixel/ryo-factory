@@ -543,7 +543,6 @@ New videos every day. Subscribe and move with me!
 → {AMAZON_US_URL}
 
 ✅ These are gear I personally recommend.
-(As an Amazon Associate I earn from qualifying purchases 🙏)
 ─────────────────────
 
 💬 Leave a comment: which stretch felt the best?

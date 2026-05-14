@@ -1,7 +1,9 @@
 """
 scheduler.py
-毎朝6時に fetch_trends → generate_script → LINE通知 を順番に実行する。
+AI Japan Labo / Hana パイプライン停止済み。このファイルは無効化されています。
 """
+import sys
+sys.exit(0)  # Hana pipeline retired
 
 import logging
 import os

@@ -638,7 +638,11 @@ def _sakura_handle_pending(user_id, reply_token, text, session):
         index = min(index, len(scripts) - 1)
         chosen_script = scripts[index]
         topic = chosen_script.get("topic", chosen_script.get("keyword", "ストレッチ"))
-        tts = _sakura_tts_preview(chosen_script["script"])
+        try:
+            tts = _sakura_tts_preview(chosen_script["script"])
+        except Exception as e:
+            log.warning(f"[Sakura] TTSプレビュー失敗（スクリプトをそのまま使用）: {e}")
+            tts = chosen_script["script"]
         chosen_script["audio_text"] = tts
 
         # 読み上げ確認ステップへ遷移（まだ動画生成しない）
@@ -846,7 +850,14 @@ def webhook():
         reply_token = event["replyToken"]
         text = event["message"]["text"]
         log.info(f"[webhook] メッセージ受信: user={user_id} text={text!r}")
-        handle_approval(user_id, reply_token, text)
+        try:
+            handle_approval(user_id, reply_token, text)
+        except Exception as e:
+            log.error(f"[webhook] handle_approval例外: {e}", exc_info=True)
+            try:
+                push_message(user_id, f"⚠️ エラーが発生しました: {e}\n「生成」と送ると台本を再作成します")
+            except Exception:
+                pass
     return "OK", 200
 
 

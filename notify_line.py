@@ -597,28 +597,16 @@ def _sakura_start_pipeline(user_id, chosen_script, topic):
 
 def _sakura_regen_and_notify(user_id: str, instruction: str = "") -> None:
     """台本を再生成してLINEに送信し、同プロセスのセッションに保存する。
-    NG却下・「生成」コマンド共通のサブルーチン。"""
+    サブプロセスではなく直接インポートして呼ぶことでRender環境の不安定さを回避。"""
     try:
-        env = os.environ.copy()
-        if instruction:
-            env["REGENERATE_INSTRUCTION"] = instruction
-        result = subprocess.run(
-            [sys.executable, str(SAKURA_DIR / "generate_script.py")],
-            env=env, capture_output=True, text=True, cwd=str(BASE_DIR), timeout=120,
-        )
-        if result.returncode != 0:
-            err = (result.stdout[-200:] + result.stderr[-300:]).strip()
-            push_message(user_id, f"⚠️ 台本再生成失敗:\n{err}")
-            return
-        scripts_dir = SAKURA_DIR / "scripts"
-        json_files = sorted(scripts_dir.glob("scripts_*.json"), reverse=True)
-        if not json_files:
-            push_message(user_id, "⚠️ 台本ファイルが見つかりません。")
-            return
-        with open(json_files[0], encoding="utf-8") as f:
+        sys.path.insert(0, str(BASE_DIR))
+        import importlib, sakura.generate_script as _gen_mod
+        importlib.reload(_gen_mod)  # 最新コードを確実に読む
+        output_path = _gen_mod.main(instruction)
+        with open(output_path, encoding="utf-8") as f:
             data = json.load(f)
         scripts = data.get("scripts", [])
-        script_path = str(json_files[0])
+        script_path = str(output_path)
         sessions = load_sakura_sessions()
         sessions[user_id] = {"scripts": scripts, "script_path": script_path}
         save_sakura_sessions(sessions)
@@ -627,13 +615,15 @@ def _sakura_regen_and_notify(user_id: str, instruction: str = "") -> None:
                 json.dump({"user_id": user_id, "scripts": scripts, "script_path": script_path}, f, ensure_ascii=False, indent=2)
         except Exception:
             pass
-        sys.path.insert(0, str(BASE_DIR))
         from sakura.notify_line import build_notification_text
         text = build_notification_text(scripts)
         for chunk in [text[i:i + 4900] for i in range(0, len(text), 4900)]:
             push_message(user_id, chunk)
         log.info(f"[Sakura] 台本再生成→通知完了: {user_id}")
+    except SystemExit:
+        push_message(user_id, "⚠️ 台本生成に失敗しました（APIキー未設定またはClaudeエラー）")
     except Exception as e:
+        log.error(f"[Sakura] 台本再生成エラー: {e}", exc_info=True)
         push_message(user_id, f"⚠️ 再生成エラー: {e}")
 
 
@@ -669,7 +659,7 @@ def _sakura_handle_pending(user_id, reply_token, text, session):
         reply_message(reply_token, "❌ 却下しました。台本を再生成して送り直します...")
         sessions.pop(user_id, None)
         save_sakura_sessions(sessions)
-        threading.Thread(target=_sakura_regen_and_notify, args=(user_id, instruction), daemon=True).start()
+        threading.Thread(target=_sakura_regen_and_notify, args=(user_id, instruction)).start()
 
     else:
         reply_message(reply_token, "返信は OK / 1 / 2 / 3 / NG のいずれかで送ってください。")
@@ -693,7 +683,7 @@ def _sakura_handle_confirm(user_id, reply_token, text, session):
         sessions.pop(user_id, None)
         save_sakura_sessions(sessions)
         reply_message(reply_token, "❌ 却下しました。台本を再生成して送り直します...")
-        threading.Thread(target=_sakura_regen_and_notify, args=(user_id, ""), daemon=True).start()
+        threading.Thread(target=_sakura_regen_and_notify, args=(user_id, "")).start()
 
     else:
         # 元のTTSプレビューと比較して修正ペアを抽出・保存
@@ -773,7 +763,7 @@ def handle_sakura_approval(user_id, reply_token, text):
 def _sakura_trigger_generate(user_id, reply_token):
     """台本をその場で生成してLINEに送信し、承認セッションを作成する。"""
     reply_message(reply_token, "🌸 台本を生成中です（30〜60秒かかります）...")
-    threading.Thread(target=_sakura_regen_and_notify, args=(user_id, ""), daemon=True).start()
+    threading.Thread(target=_sakura_regen_and_notify, args=(user_id, "")).start()
 
 
 def handle_approval(user_id, reply_token, text):
